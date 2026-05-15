@@ -23,15 +23,15 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* HERO — bold, görsel kolaj */}
+      {/* HERO */}
       <section className="relative pt-8 pb-16 md:pt-12 md:pb-24 overflow-hidden">
         <div className="container-x">
           <div className="grid lg:grid-cols-12 gap-6 lg:gap-10 items-center">
             <div className="lg:col-span-7 relative z-10">
               <div className="inline-flex items-center gap-2 bg-bone border border-ink/10 rounded-full px-4 py-1.5 mb-6">
-                <span className="text-lg">🎨</span>
+                <span className="text-lg">✨</span>
                 <span className="text-xs font-medium tracking-wide text-ink/70">
-                  Hand-painted in Cyprus · ⭐ Star Seller on Etsy
+                  AI-crafted watercolor art · ⭐ Star Seller on Etsy
                 </span>
               </div>
 
@@ -48,9 +48,9 @@ export default async function HomePage() {
               </h1>
 
               <p className="mt-8 text-lg md:text-xl text-ink/70 max-w-xl text-pretty leading-relaxed">
-                Over <strong className="text-ink">1,600</strong> dreamy designs — peeking kitties,
-                floral women, mystic moons, and quirky little weirdos. All hand-painted by humans,
-                all instant downloads.
+                Over <strong className="text-ink">1,600</strong> AI-crafted watercolor designs —
+                peeking kitties, floral women, mystic moons, quirky little weirdos.
+                Instant digital downloads, available on Etsy.
               </p>
 
               <div className="mt-10 flex flex-wrap gap-3 items-center">
@@ -62,7 +62,6 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              {/* Stats inline */}
               <div className="mt-12 flex flex-wrap gap-6 md:gap-10 text-sm">
                 <div>
                   <p className="font-display text-2xl text-ink">8,400+</p>
@@ -79,7 +78,6 @@ export default async function HomePage() {
               </div>
             </div>
 
-            {/* Hero collage — 6 images in playful arrangement */}
             <div className="lg:col-span-5 relative h-[400px] md:h-[500px] lg:h-[600px]">
               {heroImages.length > 0 && (
                 <>
@@ -105,7 +103,6 @@ export default async function HomePage() {
                   )}
                 </>
               )}
-              {/* Decorative blobs */}
               <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose/40 rounded-full blur-3xl -z-10" />
               <div className="absolute bottom-0 left-0 w-40 h-40 bg-sage/30 rounded-full blur-3xl -z-10" />
               <div className="absolute top-1/2 -right-8 w-24 h-24 bg-gold/30 rounded-full blur-2xl -z-10" />
@@ -114,7 +111,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* CATEGORIES — playful chip selector */}
+      {/* CATEGORIES */}
       <section className="py-12 md:py-16 border-y border-ink/8 bg-bone">
         <div className="container-x">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
@@ -155,12 +152,12 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* MASONRY GRID — main attraction */}
+      {/* MASONRY GRID */}
       <section className="py-16 md:py-24">
         <div className="container-x">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-10 md:mb-12">
             <div>
-              <p className="text-eyebrow mb-3">💫 Crowd favorites</p>
+              <p className="text-eyebrow mb-3">💫 Most loved</p>
               <h2 className="font-display text-display-md font-light text-balance leading-tight">
                 The ones <em className="italic">everyone</em> is pinning.
               </h2>
@@ -178,62 +175,84 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ABOUT — story section */}
+      {/* HOW IT WORKS - replaces personal story */}
       <section className="py-16 md:py-24 bg-bone">
         <div className="container-x">
-          <div className="grid lg:grid-cols-12 gap-10 items-center">
-            <div className="lg:col-span-6">
-              <p className="text-eyebrow mb-4">✍️ The makers</p>
-              <h2 className="font-display text-display-md font-light text-balance leading-[1.05]">
-                Suzan paints. <br />
-                Kursat ships. <br />
-                <em className="italic text-clay">It works.</em>
-              </h2>
-              <div className="mt-8 space-y-4 text-ink/80 text-lg leading-relaxed text-pretty">
-                <p>
-                  We're a tiny studio on a tiny island (hi from Cyprus 🌊). Suzan paints late at night
-                  when the ideas refuse to leave her alone. Kursat keeps the files crisp and the shop running.
-                </p>
-                <p>
-                  Every design here started as actual paint on actual paper. Then scanned, refined,
-                  and packed up so you can use them in junk journals, t-shirts, cards, stickers,
-                  websites — wherever your project needs a little soft pop of magic.
-                </p>
-              </div>
-              <div className="mt-8">
-                <Link href="https://www.etsy.com/shop/SuzyFlowArt/about" target="_blank" rel="noopener" className="button-ghost">
-                  Read our full story →
-                </Link>
-              </div>
-            </div>
+          <div className="max-w-3xl mx-auto text-center mb-16">
+            <p className="text-eyebrow mb-4">⚡ How it works</p>
+            <h2 className="font-display text-display-md font-light text-balance leading-[1.05]">
+              Browse here.<br />
+              Buy on <em className="italic text-clay">Etsy.</em><br />
+              Download instantly.
+            </h2>
+          </div>
 
-            <div className="lg:col-span-6">
-              <div className="grid grid-cols-2 gap-3 md:gap-4">
-                {featured?.slice(8, 14).map((l, i) => (
-                  <div
-                    key={l.id}
-                    className={`relative aspect-square rounded-2xl overflow-hidden bg-cream hover-pop ${
-                      i % 3 === 0 ? 'tilt-left' : i % 3 === 1 ? 'tilt-right' : ''
-                    } ${i === 1 ? 'translate-y-6' : ''}`}
-                  >
-                    {l.main_image_url && (
-                      <Image
-                        src={l.main_image_url}
-                        alt={l.title}
-                        fill
-                        sizes="(max-width: 768px) 50vw, 25vw"
-                        className="object-cover"
-                      />
-                    )}
-                  </div>
-                ))}
+          <div className="grid md:grid-cols-3 gap-6 md:gap-10">
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-rose/40 flex items-center justify-center text-4xl">
+                🎨
               </div>
+              <h3 className="font-display text-2xl font-light mb-3">01. Browse</h3>
+              <p className="text-ink/70 text-sm leading-relaxed">
+                Explore 1,600+ AI-crafted watercolor designs sorted into 16 collections.
+                Use the masonry grid, save your favorites to Pinterest, find the vibe.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-sky/40 flex items-center justify-center text-4xl">
+                🛒
+              </div>
+              <h3 className="font-display text-2xl font-light mb-3">02. Buy on Etsy</h3>
+              <p className="text-ink/70 text-sm leading-relaxed">
+                Tap "Buy on Etsy" to complete checkout in the SuzyFlowArt shop.
+                Secure payment, Star Seller protection, every order tracked.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-sage/40 flex items-center justify-center text-4xl">
+                ⬇️
+              </div>
+              <h3 className="font-display text-2xl font-light mb-3">03. Download</h3>
+              <p className="text-ink/70 text-sm leading-relaxed">
+                Files download instantly after checkout. High-res PNG, JPG, and sublimation-ready
+                formats. Use them in junk journals, prints, shirts, anywhere.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA — final push */}
+      {/* USE CASES */}
+      <section className="py-16 md:py-24">
+        <div className="container-x">
+          <div className="max-w-3xl mb-12">
+            <p className="text-eyebrow mb-4">🎯 Perfect for</p>
+            <h2 className="font-display text-display-md font-light text-balance leading-tight">
+              Designed for <em className="italic text-clay">your projects.</em>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { emoji: '📓', label: 'Junk journals' },
+              { emoji: '👕', label: 'T-shirt designs' },
+              { emoji: '🎂', label: 'Greeting cards' },
+              { emoji: '🏠', label: 'Wall prints' },
+              { emoji: '📱', label: 'Phone wallpapers' },
+              { emoji: '🎁', label: 'Gift wrap' },
+              { emoji: '✂️', label: 'Stickers & decals' },
+              { emoji: '📚', label: 'Scrapbooks' },
+            ].map((item) => (
+              <div key={item.label} className="bg-bone rounded-2xl p-5 flex items-center gap-3">
+                <span className="text-2xl">{item.emoji}</span>
+                <span className="text-sm font-medium">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
       <section className="py-20 md:py-32 bg-ink text-cream relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 left-10 w-32 h-32 bg-clay rounded-full blur-3xl" />
@@ -241,14 +260,14 @@ export default async function HomePage() {
         </div>
 
         <div className="container-x relative text-center">
-          <p className="text-eyebrow !text-cream/60 mb-6">🎁 One last thing</p>
+          <p className="text-eyebrow !text-cream/60 mb-6">🎁 Ready to start?</p>
           <h2 className="font-display text-display-lg font-light text-balance max-w-4xl mx-auto leading-[0.95]">
             <em className="italic">Instant downloads.</em><br />
             No waiting. No shipping.<br />
             Just <em className="italic text-clay">art.</em>
           </h2>
           <p className="mt-8 text-cream/70 text-lg max-w-xl mx-auto">
-            All purchases happen securely on Etsy. Files download the second you check out.
+            Every purchase happens securely on Etsy. Files download the second checkout completes.
             Star Seller guarantee included.
           </p>
           <div className="mt-10">
