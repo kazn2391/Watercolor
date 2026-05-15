@@ -7,12 +7,12 @@ export default function Footer() {
         <div className="grid md:grid-cols-12 gap-10">
           <div className="md:col-span-5">
             <p className="font-display text-3xl md:text-4xl font-light text-cream text-balance leading-tight">
-              Watercolor magic<br />
-              <em className="italic text-clay">painted by hand.</em>
+              Watercolor clipart<br />
+              for <em className="italic text-clay">every project.</em>
             </p>
             <p className="mt-4 text-cream/60 max-w-md text-sm leading-relaxed">
-              1,600+ hand-painted designs by Suzan & Kursat in Cyprus.
-              Instant downloads, secured by Etsy's Star Seller guarantee.
+              1,600+ AI-crafted watercolor designs. Curated digital art collection,
+              available exclusively on Etsy with Star Seller protection.
             </p>
           </div>
 
@@ -49,7 +49,7 @@ export default function Footer() {
 
         <div className="mt-16 pt-8 border-t border-cream/10 flex flex-wrap justify-between gap-4 text-xs text-cream/40">
           <p>© {new Date().getFullYear()} SuzyFlowArt · Watercolor Clipart</p>
-          <p>Hand-painted with love · Cyprus 🌊</p>
+          <p>Curated digital art · Star Seller on Etsy</p>
         </div>
       </div>
     </footer>
