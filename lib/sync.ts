@@ -6,62 +6,94 @@ import { inferCategoriesFromTags } from './categories';
 
 export interface SyncResult {
   total: number;
+  processed: number;
   added: number;
   updated: number;
+  skipped: number;
   errors: number;
+  hasMore: boolean;
+  nextOffset: number;
   durationMs: number;
   errorMessages: string[];
 }
 
-export async function fullSync(): Promise<SyncResult> {
+const BATCH_LIMIT = 200;
+
+export async function fullSync(offset = 0): Promise<SyncResult> {
   const start = Date.now();
   const db = supabaseAdmin();
 
   const { data: logEntry } = await db
     .from('sync_logs')
-    .insert({ sync_type: 'full', status: 'running' })
+    .insert({ sync_type: 'partial', status: 'running' })
     .select()
     .single();
   const logId = logEntry?.id;
 
-  let added = 0, updated = 0, errors = 0;
+  let added = 0;
+  let updated = 0;
+  let skipped = 0;
+  let errors = 0;
   const errorMessages: string[] = [];
 
   try {
-    const listings = await etsy.getAllActiveListings();
+    const allListings = await etsy.getAllActiveListingsLight();
+    const total = allListings.length;
+
+    const slice = allListings.slice(offset, offset + BATCH_LIMIT);
+    const sliceIds = slice.map((l) => l.listing_id);
+
+    const enriched = await etsy.getListingsByIds(sliceIds);
+    const enrichedMap = new Map<number, EtsyListing>();
+    for (const e of enriched) enrichedMap.set(e.listing_id, e);
 
     const { data: categories } = await db.from('categories').select('id, slug');
     const slugToCategoryId = new Map<string, number>();
     for (const cat of categories || []) slugToCategoryId.set(cat.slug, cat.id);
 
-    for (const l of listings) {
+    for (const l of slice) {
       try {
-        const result = await upsertListing(l, slugToCategoryId);
+        const e = enrichedMap.get(l.listing_id);
+        const withImages = e && e.images && e.images.length > 0 ? { ...l, images: e.images } : l;
+        const result = await upsertListing(withImages, slugToCategoryId);
         if (result === 'added') added++;
         else if (result === 'updated') updated++;
       } catch (err: any) {
         errors++;
-        errorMessages.push(`Listing ${l.listing_id}: ${err.message}`);
-        if (errorMessages.length > 20) errorMessages.length = 20;
+        if (errorMessages.length < 15) errorMessages.push('Listing ' + l.listing_id + ': ' + err.message);
       }
     }
 
     await updateCategoryCounts(db);
 
+    const nextOffset = offset + BATCH_LIMIT;
+    const hasMore = nextOffset < total;
+
     const result: SyncResult = {
-      total: listings.length, added, updated, errors,
-      durationMs: Date.now() - start, errorMessages,
+      total,
+      processed: slice.length,
+      added,
+      updated,
+      skipped,
+      errors,
+      hasMore,
+      nextOffset: hasMore ? nextOffset : 0,
+      durationMs: Date.now() - start,
+      errorMessages,
     };
 
     if (logId) {
       await db.from('sync_logs').update({
-        status: errors > listings.length / 2 ? 'failed' : 'success',
+        status: errors > slice.length / 2 ? 'failed' : 'success',
         listings_added: added,
         listings_updated: updated,
         completed_at: new Date().toISOString(),
-        error_message: errorMessages.slice(0, 5).join('\n') || null,
+        error_message: hasMore
+          ? 'Partial OK. Next offset: ' + nextOffset + ' / ' + total
+          : 'Full sync complete: ' + total + ' listings',
       }).eq('id', logId);
     }
+
     return result;
   } catch (err: any) {
     if (logId) {
@@ -88,27 +120,38 @@ async function upsertListing(l: EtsyListing, slugToCategoryId: Map<string, numbe
   const mainImage = pickBestImage(l.images);
   const images = normalizeImages(l.images);
   const description = stripHtml(l.description || '').slice(0, 2000);
-  const seoTitle = `${l.title.slice(0, 60)} | Watercolor Clipart`;
+  const seoTitle = l.title.slice(0, 60) + ' | Watercolor Clipart';
   const seoDescription = description.slice(0, 158);
 
   const { data: existing } = await db.from('listings').select('id').eq('id', l.listing_id).maybeSingle();
 
   const row = {
-    id: l.listing_id, slug,
-    title: l.title, description, price,
+    id: l.listing_id,
+    slug,
+    title: l.title,
+    description,
+    price,
     original_price: originalPrice,
     currency_code: l.price?.currency_code || 'USD',
-    on_sale: onSale, discount_percent: discountPercent,
-    etsy_url: l.url, state: l.state,
-    main_image_url: mainImage, images,
-    tags: l.tags || [], materials: l.materials || [],
-    views: l.views || 0, num_favorers: l.num_favorers || 0,
-    quantity: l.quantity, who_made: l.who_made, when_made: l.when_made,
+    on_sale: onSale,
+    discount_percent: discountPercent,
+    etsy_url: l.url,
+    state: l.state,
+    main_image_url: mainImage,
+    images,
+    tags: l.tags || [],
+    materials: l.materials || [],
+    views: l.views || 0,
+    num_favorers: l.num_favorers || 0,
+    quantity: l.quantity,
+    who_made: l.who_made,
+    when_made: l.when_made,
     is_digital: l.is_digital,
     etsy_created_at: new Date(l.creation_timestamp * 1000).toISOString(),
     etsy_updated_at: new Date(l.updated_timestamp * 1000).toISOString(),
     last_synced_at: new Date().toISOString(),
-    seo_title: seoTitle, seo_description: seoDescription,
+    seo_title: seoTitle,
+    seo_description: seoDescription,
     updated_at: new Date().toISOString(),
   };
 
@@ -119,7 +162,7 @@ async function upsertListing(l: EtsyListing, slugToCategoryId: Map<string, numbe
   await db.from('listing_categories').delete().eq('listing_id', l.listing_id);
 
   const inserts = categorySlugs
-    .map((slug) => slugToCategoryId.get(slug))
+    .map((s) => slugToCategoryId.get(s))
     .filter((id): id is number => typeof id === 'number')
     .map((category_id) => ({ listing_id: l.listing_id, category_id }));
 
@@ -136,14 +179,5 @@ async function updateCategoryCounts(db: ReturnType<typeof supabaseAdmin>) {
   for (const row of counts) tally.set(row.category_id, (tally.get(row.category_id) || 0) + 1);
   for (const [categoryId, count] of tally.entries()) {
     await db.from('categories').update({ listing_count: count }).eq('id', categoryId);
-  }
-  const { data: cats } = await db.from('categories').select('id, hero_image_url');
-  for (const cat of cats || []) {
-    if (cat.hero_image_url) continue;
-    const { data: firstListing } = await db
-      .from('listing_categories').select('listings(main_image_url)')
-      .eq('category_id', cat.id).limit(1).single();
-    const heroUrl = (firstListing as any)?.listings?.main_image_url;
-    if (heroUrl) await db.from('categories').update({ hero_image_url: heroUrl }).eq('id', cat.id);
   }
 }
