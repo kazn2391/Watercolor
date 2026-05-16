@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
-import { buildListingMetadata, productJsonLd, breadcrumbJsonLd, stripHtml } from '@/lib/seo';
+import { buildListingMetadata, productJsonLd, breadcrumbJsonLd, stripHtml, generateAltText, generateUniqueDescription } from '@/lib/seo';
 import ListingCard from '@/components/ListingCard';
 import PinShareButton from '@/components/PinShareButton';
 
@@ -39,7 +39,8 @@ export default async function ListingPage({ params }: { params: { slug: string }
     { name: listing.title, url: `${SITE_URL}/listing/${listing.slug}` },
   ]);
 
-  const description = stripHtml(listing.description || '');
+  const uniqueDesc = generateUniqueDescription(listing);
+  const etsyDesc = stripHtml(listing.description || '');
 
   return (
     <>
@@ -65,7 +66,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
               <div className="space-y-3">
                 {listing.main_image_url && (
                   <div className="relative aspect-square rounded-2xl overflow-hidden bg-bone">
-                    <Image src={listing.main_image_url} alt={listing.title}
+                    <Image src={listing.main_image_url} alt={generateAltText(listing)}
                       fill sizes="(max-width: 1024px) 100vw, 60vw" className="object-cover" priority />
                   </div>
                 )}
@@ -73,7 +74,7 @@ export default async function ListingPage({ params }: { params: { slug: string }
                   <div className="grid grid-cols-4 gap-2">
                     {listing.images.slice(0, 8).map((img: any, i: number) => (
                       <div key={i} className="relative aspect-square rounded-xl overflow-hidden bg-bone">
-                        <Image src={img.url} alt={`${listing.title} - view ${i + 1}`}
+                        <Image src={img.url} alt={generateAltText(listing, i)}
                           fill sizes="200px" className="object-cover" />
                       </div>
                     ))}
@@ -110,11 +111,16 @@ export default async function ListingPage({ params }: { params: { slug: string }
                 Secure checkout · Star Seller shop · Instant access after purchase
               </p>
 
-              {description && (
-                <div className="mt-10 pt-8 border-t border-ink/10">
-                  <p className="text-eyebrow mb-3">About this design</p>
-                  <p className="text-ink/80 leading-relaxed whitespace-pre-line line-clamp-[14]">
-                    {description.slice(0, 1500)}{description.length > 1500 ? '…' : ''}
+              <div className="mt-10 pt-8 border-t border-ink/10">
+                <p className="text-eyebrow mb-3">About this design</p>
+                <p className="text-ink/80 leading-relaxed">{uniqueDesc}</p>
+              </div>
+
+              {etsyDesc && etsyDesc.length > 50 && (
+                <div className="mt-8 pt-6 border-t border-ink/10">
+                  <p className="text-eyebrow mb-3">Full details</p>
+                  <p className="text-ink/70 text-sm leading-relaxed whitespace-pre-line line-clamp-[12]">
+                    {etsyDesc.slice(0, 1000)}{etsyDesc.length > 1000 ? '…' : ''}
                   </p>
                 </div>
               )}
