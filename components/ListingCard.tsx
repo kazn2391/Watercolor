@@ -1,13 +1,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Listing } from '@/lib/supabase';
+import { generateAltText } from '@/lib/seo';
 import PinShareButton from './PinShareButton';
 
-const ACCENT_COLORS = ['bg-rose', 'bg-sky', 'bg-sage', 'bg-gold', 'bg-clay'];
-
 export default function ListingCard({ listing, index = 0, priority = false }: { listing: Listing; index?: number; priority?: boolean }) {
-  const accent = ACCENT_COLORS[index % ACCENT_COLORS.length];
   const tiltClass = index % 3 === 0 ? '' : index % 3 === 1 ? 'tilt-left' : 'tilt-right';
+  const altText = generateAltText(listing);
 
   return (
     <article className={`masonry-item group hover-pop ${tiltClass}`}>
@@ -17,7 +16,7 @@ export default function ListingCard({ listing, index = 0, priority = false }: { 
             <div className="relative">
               <Image
                 src={listing.main_image_url}
-                alt={listing.title}
+                alt={altText}
                 width={570}
                 height={570}
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1440px) 25vw, 20vw"
@@ -31,14 +30,10 @@ export default function ListingCard({ listing, index = 0, priority = false }: { 
             </div>
           )}
 
-          {/* On sale badge */}
           {listing.on_sale && listing.discount_percent && (
-            <div className="absolute top-3 left-3 badge">
-              −{listing.discount_percent}%
-            </div>
+            <div className="absolute top-3 left-3 badge">−{listing.discount_percent}%</div>
           )}
 
-          {/* Hover overlay with pin button */}
           <div className="absolute inset-0 bg-gradient-to-t from-ink/60 via-ink/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
             <div className="flex justify-end">
               <PinShareButton listing={listing} compact />
@@ -49,7 +44,6 @@ export default function ListingCard({ listing, index = 0, priority = false }: { 
           </div>
         </div>
 
-        {/* Card details below */}
         <div className="mt-3 px-1">
           <h3 className="text-sm text-ink leading-snug line-clamp-2 group-hover:text-clay transition-colors">
             {listing.title}
@@ -71,6 +65,10 @@ export default function ListingCard({ listing, index = 0, priority = false }: { 
           </div>
         </div>
       </Link>
+
+      <div className="mt-2 px-1">
+        <PinShareButton listing={listing} />
+      </div>
     </article>
   );
 }
