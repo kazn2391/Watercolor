@@ -34,6 +34,30 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
+function renderInline(text: string, keyBase: string) {
+  const parts: (string | JSX.Element)[] = [];
+  const regex = /<a href="([^"]+)">([^<]+)<\/a>/g;
+  let lastIndex = 0;
+  let match;
+  let i = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <Link key={keyBase + '-' + i} href={match[1]} className="text-clay underline underline-offset-2 hover:text-ink transition-colors">
+        {match[2]}
+      </Link>
+    );
+    lastIndex = regex.lastIndex;
+    i++;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts;
+}
+
 function renderContent(content: string) {
   const lines = content.split('\n');
   const elements: JSX.Element[] = [];
@@ -49,10 +73,11 @@ function renderContent(content: string) {
       );
     } else {
       elements.push(
-        <p key={key++} className="text-ink/80 leading-relaxed mb-5 text-[17px]">
-          {trimmed}
+        <p key={key} className="text-ink/80 leading-relaxed mb-5 text-[17px]">
+          {renderInline(trimmed, 'p' + key)}
         </p>
       );
+      key++;
     }
   }
   return elements;
