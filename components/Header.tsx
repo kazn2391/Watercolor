@@ -8,7 +8,7 @@ const NAV = [
   { label: 'Women', href: '/woman-art', emoji: '👩‍🎨' },
   { label: 'Peeking', href: '/peeking-art', emoji: '👀' },
   { label: 'Quirky', href: '/quirky-whimsical', emoji: '✨' },
-  { label: 'Mystic', href: '/mystic-religious', emoji: '🌙' },
+  { label: 'Blog', href: '/blog', emoji: '📖' },
 ];
 
 export default function Header() {
