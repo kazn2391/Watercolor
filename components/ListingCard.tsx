@@ -65,10 +65,6 @@ export default function ListingCard({ listing, index = 0, priority = false }: { 
           </div>
         </div>
       </Link>
-
-      <div className="mt-2 px-1">
-        <PinShareButton listing={listing} />
-      </div>
     </article>
   );
 }
