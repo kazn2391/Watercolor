@@ -51,8 +51,8 @@ export async function createDraftListing(input: CreateInput): Promise<number> {
   body.append('is_personalizable', 'false');
   body.append('should_auto_renew', 'true');
   body.append('state', 'draft');
-  for (const tag of input.tags.slice(0, 13)) {
-    body.append('tags', tag);
+  const tagString = input.tags.slice(0, 13).join(',');
+  body.append('tags', tagString);
   }
 
   const res = await fetch(
