@@ -78,7 +78,8 @@ export async function createDraftListing(input: CreateInput): Promise<number> {
 export async function uploadListingImage(
   listingId: number,
   imageBuffer: Buffer,
-  rank: number
+  rank: number,
+  altText: string
 ): Promise<void> {
   const token = await getValidEtsyToken();
 
@@ -87,6 +88,9 @@ export async function uploadListingImage(
   const blob = new Blob([bytes], { type: 'image/png' });
   form.append('image', blob, 'design-' + rank + '.png');
   form.append('rank', String(rank));
+  if (altText) {
+    form.append('alt_text', altText.slice(0, 250));
+  }
 
   const res = await fetch(
     ETSY_API + '/shops/' + SHOP_ID + '/listings/' + listingId + '/images',
