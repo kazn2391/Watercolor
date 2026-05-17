@@ -1,0 +1,101 @@
+'use client';
+
+import { useState } from 'react';
+
+export default function EtsyAdminPanel() {
+  const [key, setKey] = useState('');
+  const [driveUrl, setDriveUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState('');
+
+  async function handleSubmit() {
+    setLoading(true);
+    setError('');
+    setResult(null);
+    try {
+      const res = await fetch('/api/etsy/create-draft?key=' + encodeURIComponent(key), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driveUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Hata');
+        if (data.steps) setResult({ steps: data.steps });
+      } else {
+        setResult(data);
+        setDriveUrl('');
+      }
+    } catch (e: any) {
+      setError(e.message);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div style={{ maxWidth: 600, margin: '60px auto', padding: 24, fontFamily: 'sans-serif' }}>
+      <h1 style={{ fontSize: 24, marginBottom: 24 }}>Etsy Draft Olusturucu</h1>
+
+      <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: '#666' }}>
+        Erisim Anahtari
+      </label>
+      <input
+        type="password"
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+        placeholder="Gizli anahtar"
+        style={{ width: '100%', padding: 10, marginBottom: 16, border: '1px solid #ddd', borderRadius: 8 }}
+      />
+
+      <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: '#666' }}>
+        Google Drive Klasor Linki
+      </label>
+      <input
+        type="text"
+        value={driveUrl}
+        onChange={(e) => setDriveUrl(e.target.value)}
+        placeholder="https://drive.google.com/drive/folders/..."
+        style={{ width: '100%', padding: 10, marginBottom: 16, border: '1px solid #ddd', borderRadius: 8 }}
+      />
+
+      <button
+        onClick={handleSubmit}
+        disabled={loading || !key || !driveUrl}
+        style={{
+          width: '100%', padding: 14, background: loading ? '#999' : '#b5835a',
+          color: 'white', border: 'none', borderRadius: 8, fontSize: 16,
+          cursor: loading ? 'wait' : 'pointer',
+        }}
+      >
+        {loading ? 'Olusturuluyor (1-3 dk)' : 'Etsy Draft Olustur'}
+      </button>
+
+      {error && (
+        <div style={{ marginTop: 20, padding: 16, background: '#fee', borderRadius: 8, color: '#c00' }}>
+          <strong>Hata:</strong> {error}
+        </div>
+      )}
+
+      {result && result.steps && (
+        <div style={{ marginTop: 20, padding: 16, background: '#f5f5f5', borderRadius: 8, fontSize: 13 }}>
+          {result.steps.map((s: string, i: number) => (
+            <div key={i}>{s}</div>
+          ))}
+        </div>
+      )}
+
+      {result && result.success && (
+        <div style={{ marginTop: 20, padding: 16, background: '#efe', borderRadius: 8 }}>
+          <p style={{ fontWeight: 'bold', color: '#080' }}>Draft hazir!</p>
+          <p style={{ fontSize: 14, margin: '8px 0' }}><strong>Title:</strong> {result.seo.title}</p>
+          <p style={{ fontSize: 13, margin: '8px 0' }}><strong>Tags:</strong> {result.seo.tags.join(', ')}</p>
+          <a href={result.etsyEditUrl} target="_blank" rel="noopener"
+             style={{ color: '#b5835a', fontWeight: 'bold' }}>
+            Etsy de kontrol et ve yayinla
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
