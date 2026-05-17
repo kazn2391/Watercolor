@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFString, PDFDict } from 'pdf-lib';
 
 export async function rewritePdfDownloadLink(
   templatePdf: Buffer,
@@ -13,6 +13,7 @@ export async function rewritePdfDownloadLink(
   let bestRef: any = null;
   let bestArea = -1;
 
+  // En buyuk alanli Link annotation = DOWNLOAD butonu
   for (let i = 0; i < annotsRaw.size(); i++) {
     const annotRef = annotsRaw.get(i);
     const annot: any = pdfDoc.context.lookup(annotRef);
@@ -20,15 +21,6 @@ export async function rewritePdfDownloadLink(
 
     const subtype = annot.get(PDFName.of('Subtype'));
     if (!subtype || subtype.toString() !== '/Link') continue;
-
-    const aDict: any = annot.get(PDFName.of('A'));
-    if (!aDict || typeof aDict.get !== 'function') continue;
-
-    const uriObj = aDict.get(PDFName.of('URI'));
-    if (!uriObj) continue;
-
-    const uri = uriObj.toString().replace(/^\(|\)$/g, '');
-    if (uri.indexOf('drive.google.com/drive/folders') === -1) continue;
 
     const rect: any = annot.get(PDFName.of('Rect'));
     if (!rect || typeof rect.get !== 'function') continue;
@@ -45,11 +37,17 @@ export async function rewritePdfDownloadLink(
     }
   }
 
-  if (!bestRef) throw new Error('DOWNLOAD butonu bulunamadi');
+  if (!bestRef) throw new Error('DOWNLOAD butonu bulunamadi (link yok)');
 
   const annot: any = pdfDoc.context.lookup(bestRef);
-  const aDict: any = annot.get(PDFName.of('A'));
-  aDict.set(PDFName.of('URI'), PDFString.of(newDriveFolderUrl));
+
+  // Eski /A action sozlugunu komple yeni bir URI action ile degistir
+  const newAction = pdfDoc.context.obj({
+    Type: PDFName.of('Action'),
+    S: PDFName.of('URI'),
+    URI: PDFString.of(newDriveFolderUrl),
+  });
+  annot.set(PDFName.of('A'), newAction);
 
   const out = await pdfDoc.save();
   return Buffer.from(out);
