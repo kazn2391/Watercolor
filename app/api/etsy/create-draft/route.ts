@@ -139,4 +139,24 @@ export async function POST(req: Request) {
     if (tplRow && tplRow.pdf_template_b64) {
       try {
         const tplBuf = Buffer.from(tplRow.pdf_template_b64, 'base64');
-        const newPdf = await rewritePdfDownloadLink(tpl
+        const newPdf = await rewritePdfDownloadLink(tplBuf, driveUrl);
+        await uploadListingFile(listingId, newPdf, 'download.pdf');
+        steps.push('PDF link degistirildi ve yuklendi');
+      } catch (pdfErr: any) {
+        steps.push('PDF HATASI: ' + pdfErr.message);
+      }
+    } else {
+      steps.push('UYARI: PDF sablonu yok');
+    }
+
+    return NextResponse.json({
+      success: true,
+      listingId,
+      etsyEditUrl: 'https://www.etsy.com/your/shops/me/listing-editor/edit/' + listingId,
+      seo,
+      steps,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message, steps }, { status: 500 });
+  }
+}
