@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import sharp from 'sharp';
 import { supabaseAdmin } from '@/lib/supabase';
 import { readDriveFolder, downloadDriveFile } from '@/lib/drive-reader';
 import { generateEtsySeo } from '@/lib/ai-seo';
@@ -16,7 +17,13 @@ export const maxDuration = 300;
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
 async function describeImageBuffer(buf: Buffer): Promise<string> {
-  const b64 = buf.toString('base64');
+  // AI 5MB limiti var. Analiz icin kucult (Etsy'ye orijinal yuklenecek).
+  const small = await sharp(buf)
+    .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 80 })
+    .toBuffer();
+  const b64 = small.toString('base64');
+
   const res = await fetch(ANTHROPIC_API, {
     method: 'POST',
     headers: {
@@ -31,7 +38,7 @@ async function describeImageBuffer(buf: Buffer): Promise<string> {
         {
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: b64 } },
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
             { type: 'text', text: 'Describe this clipart design in one short phrase. Name the exact subject (for example: cats, flowers, teacher theme, coffee cups), the art style, and main colors. Max 15 words. Be specific about the subject.' },
           ],
         },
@@ -98,7 +105,6 @@ export async function POST(req: Request) {
 
     const top10 = folder.images.slice(0, 10);
 
-    // Ilk 2 resmin gercek dosyasini indirip AI'a gonder
     const analyzeBuffers: Buffer[] = [];
     for (let i = 0; i < Math.min(2, top10.length); i++) {
       const b = await downloadDriveFile(top10[i].id);
