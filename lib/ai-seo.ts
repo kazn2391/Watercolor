@@ -8,36 +8,31 @@ export interface SeoOutput {
   title: string;
   tags: string[];
   description: string;
+  altBase: string;
 }
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
 export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
-  const focus = input.hasPdf ? 'sublimation' : 'printable clipart';
+  const focus = input.hasPdf ? 'sublimation PNG' : 'printable clipart';
   const productType = input.hasPdf
-    ? 'sublimation PNG bundle for apparel and product printing'
-    : 'printable watercolor clipart bundle for crafts and digital design';
+    ? 'sublimation PNG bundle for apparel and product printing (shirts, mugs, tumblers, tote bags)'
+    : 'printable watercolor clipart bundle for crafts, junk journals, cards and digital design';
 
   const sys =
-    'You are an expert Etsy SEO specialist following the 2026 Etsy search algorithm rules. ' +
-    'Rules you MUST follow strictly: ' +
-    '1) TITLE: max 140 chars. First 40 chars must contain the primary keyword. ' +
-    'Use pipe | to separate distinct keyword clusters. Natural readable phrases, NO keyword stuffing, ' +
-    'NO filler words like beautiful or amazing. Front-load the product noun. ' +
-    '2) TAGS: EXACTLY 13 tags. Each max 20 chars. Multi-word long-tail phrases. ' +
-    'NO tag may repeat a phrase already in the title. No single words if a phrase fits. ' +
-    'No trademarked brand names. Cover different search variations. ' +
-    '3) DESCRIPTION: First 160 chars must be a keyword-rich mini-title used as ranking signal. ' +
-    'Then conversion copy. Include exact file count, format, 300 DPI, transparent, commercial use, instant download. ' +
-    'US market focus. NEVER use the phrase wall art. ' +
-    'Return ONLY valid JSON: {"title":"...","tags":["13 items"],"description":"..."}. No markdown, no preamble.';
+    'You are a world-class Etsy SEO specialist for 2026. Output ONLY valid JSON, no markdown, no preamble. ' +
+    'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string"}.\n' +
+    'RULES (follow EXACTLY):\n' +
+    'TITLE: under 15 words. Google shows first 50-60 chars, so put the SPECIFIC SUBJECT of the designs + main keyword in the first 50 chars. Must read naturally for a human seeing it on Google. State clearly what the item is at the start. Use | only to separate clusters. No filler words like beautiful/stunning.\n' +
+    'TAGS: EXACTLY 13. Each tag MUST be 20 characters or fewer (hard Etsy limit, count every character including spaces). Multi-word long-tail phrases buyers actually search. No tag repeats a phrase already in the title. None empty.\n' +
+    'DESCRIPTION: First sentence must clearly state exactly what the item is (a person reading only the first sentence knows what is sold). Then detailed paragraphs. Use real paragraph breaks with \\n\\n between sections. Include a line "WHAT YOU GET:" and a line "COMMERCIAL USE:". Avoid repeating the same phrase. Include exact file count, 300 DPI, transparent PNG, instant download, US focus. Never say "wall art".\n' +
+    'altBase: a short 6-10 word descriptive phrase of what the designs actually show, including color and style (used to build image alt text). Example: "watercolor floral cat clipart in soft pastel tones".';
 
   const usr =
-    'Create Etsy SEO for a ' + productType + '. ' +
-    'Focus: ' + focus + '. ' +
-    'This bundle contains ' + input.fileCount + ' design files. ' +
-    'The designs show: ' + input.imageDescriptions.join('; ') + '. ' +
-    'Generate the title, exactly 13 tags, and description as JSON.';
+    'Product: ' + productType + '. Focus keyword theme: ' + focus + '. ' +
+    'This bundle has EXACTLY ' + input.fileCount + ' design files. ' +
+    'The actual designs show: ' + input.imageDescriptions.join(' | ') + '. ' +
+    'Base the title, tags and altBase on the ACTUAL subject of these designs, not generic words. Return JSON now.';
 
   const res = await fetch(ANTHROPIC_API, {
     method: 'POST',
@@ -67,17 +62,27 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   try {
     parsed = JSON.parse(text);
   } catch (e) {
-    throw new Error('AI returned invalid JSON: ' + text.slice(0, 300));
+    throw new Error('AI invalid JSON: ' + text.slice(0, 300));
   }
 
+  if (typeof parsed.title !== 'string') parsed.title = '';
   if (parsed.title.length > 140) parsed.title = parsed.title.slice(0, 140);
+
   if (!Array.isArray(parsed.tags)) parsed.tags = [];
   parsed.tags = parsed.tags
-    .map((t) => String(t).slice(0, 20).trim())
-    .filter((t) => t.length > 0)
-    .slice(0, 13);
-  while (parsed.tags.length < 13) {
-    parsed.tags.push('digital download');
+    .map((t) => String(t).trim())
+    .filter((t) => t.length > 0 && t.length <= 20);
+  const fillers = ['digital download', 'instant download', 'png clipart', 'commercial use', 'craft supply', 'printable art'];
+  let fi = 0;
+  while (parsed.tags.length < 13 && fi < fillers.length) {
+    if (parsed.tags.indexOf(fillers[fi]) === -1) parsed.tags.push(fillers[fi]);
+    fi++;
+  }
+  parsed.tags = parsed.tags.slice(0, 13);
+
+  if (typeof parsed.description !== 'string') parsed.description = '';
+  if (typeof parsed.altBase !== 'string' || !parsed.altBase) {
+    parsed.altBase = 'watercolor clipart design';
   }
 
   return parsed;
