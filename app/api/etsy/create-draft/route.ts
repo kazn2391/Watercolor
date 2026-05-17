@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { readDriveFolder, downloadDriveFile, getDriveThumbnail } from '@/lib/drive-reader';
+import { readDriveFolder, downloadDriveFile } from '@/lib/drive-reader';
 import { generateEtsySeo } from '@/lib/ai-seo';
 import { rewritePdfDownloadLink } from '@/lib/pdf-rewrite';
 import {
@@ -15,7 +15,8 @@ export const maxDuration = 300;
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
-async function describeImage(b64: string): Promise<string> {
+async function describeImageBuffer(buf: Buffer): Promise<string> {
+  const b64 = buf.toString('base64');
   const res = await fetch(ANTHROPIC_API, {
     method: 'POST',
     headers: {
@@ -31,17 +32,21 @@ async function describeImage(b64: string): Promise<string> {
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: 'image/png', data: b64 } },
-            { type: 'text', text: 'Describe this clipart design in one short phrase: subject, style, colors, theme. Max 15 words.' },
+            { type: 'text', text: 'Describe this clipart design in one short phrase. Name the exact subject (for example: cats, flowers, teacher theme, coffee cups), the art style, and main colors. Max 15 words. Be specific about the subject.' },
           ],
         },
       ],
     }),
   });
   const data = await res.json();
-  if (!res.ok) return 'watercolor clipart design';
+  if (!res.ok) {
+    throw new Error('Image analiz hatasi: ' + JSON.stringify(data).slice(0, 200));
+  }
   let t = '';
-  for (const b of data.content || []) if (b.type === 'text') t += b.text;
-  return t.trim().slice(0, 120);
+  for (const b of data.content || []) {
+    if (b.type === 'text') t += b.text;
+  }
+  return t.trim().slice(0, 150);
 }
 
 function buildAltText(altBase: string, rank: number, total: number): string {
@@ -54,7 +59,7 @@ function buildAltText(altBase: string, rank: number, total: number): string {
     altBase + ' transparent background PNG file',
     altBase + ' digital art for sublimation and print',
     altBase + ' instant download craft supply',
-    altBase + ' hand-illustrated style clipart',
+    altBase + ' digital clipart illustration',
     altBase + ' design ' + rank + ' of ' + total,
   ];
   const v = variants[(rank - 1) % variants.length];
@@ -92,24 +97,38 @@ export async function POST(req: Request) {
     steps.push(folder.imageCount + ' resim, PDF: ' + folder.hasPdf);
 
     const top10 = folder.images.slice(0, 10);
+
+    // Ilk 2 resmin gercek dosyasini indirip AI'a gonder
+    const analyzeBuffers: Buffer[] = [];
+    for (let i = 0; i < Math.min(2, top10.length); i++) {
+      const b = await downloadDriveFile(top10[i].id);
+      analyzeBuffers.push(b);
+    }
+
     const descs: string[] = [];
-    for (const img of top10.slice(0, 4)) {
+    for (const b of analyzeBuffers) {
       try {
-        const thumb = await getDriveThumbnail(img.id);
-        const d = await describeImage(thumb);
-        descs.push(d);
-      } catch (e) {
-        descs.push('watercolor clipart');
+        const d = await describeImageBuffer(b);
+        if (d && d.length > 3) descs.push(d);
+      } catch (e: any) {
+        steps.push('Resim analiz uyarisi: ' + (e.message || 'bilinmeyen'));
       }
     }
-    steps.push('Gorseller analiz edildi');
+
+    if (descs.length === 0) {
+      return NextResponse.json(
+        { error: 'Resimler analiz edilemedi. Drive dosyalari gercekten resim mi ve herkese acik mi?', steps },
+        { status: 400 }
+      );
+    }
+    steps.push('Gorseller analiz edildi: ' + descs[0].slice(0, 60));
 
     const seo = await generateEtsySeo({
       imageDescriptions: descs,
       fileCount: folder.imageCount,
       hasPdf: folder.hasPdf,
     });
-    steps.push('SEO uretildi: ' + seo.title.slice(0, 50));
+    steps.push('SEO uretildi: ' + seo.title.slice(0, 55));
 
     const taxonomyId = await findClipArtTaxonomyId();
     steps.push('Taxonomy: ' + taxonomyId);
@@ -123,7 +142,12 @@ export async function POST(req: Request) {
     steps.push('Draft olusturuldu: ' + listingId);
 
     for (let i = 0; i < top10.length; i++) {
-      const buf = await downloadDriveFile(top10[i].id);
+      let buf: Buffer;
+      if (i < analyzeBuffers.length) {
+        buf = analyzeBuffers[i];
+      } else {
+        buf = await downloadDriveFile(top10[i].id);
+      }
       const alt = buildAltText(seo.altBase, i + 1, top10.length);
       await uploadListingImage(listingId, buf, i + 1, alt);
     }
