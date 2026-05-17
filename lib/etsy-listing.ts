@@ -53,7 +53,6 @@ export async function createDraftListing(input: CreateInput): Promise<number> {
   body.append('state', 'draft');
   const tagString = input.tags.slice(0, 13).join(',');
   body.append('tags', tagString);
-  }
 
   const res = await fetch(
     ETSY_API + '/shops/' + SHOP_ID + '/listings',
