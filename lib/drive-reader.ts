@@ -1,193 +1,84 @@
-import { NextResponse } from 'next/server';
-import sharp from 'sharp';
-import { supabaseAdmin } from '@/lib/supabase';
-import { readDriveFolder, downloadDriveFile } from '@/lib/drive-reader';
-import { generateEtsySeo } from '@/lib/ai-seo';
-import { rewritePdfDownloadLink } from '@/lib/pdf-rewrite';
-import {
-  createDraftListing,
-  uploadListingImage,
-  uploadListingFile,
-  findClipArtTaxonomyId,
-} from '@/lib/etsy-listing';
-
-export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
-
-const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
-
-async function describeImageBuffer(buf: Buffer): Promise<string> {
-  const small = await sharp(buf)
-    .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
-    .jpeg({ quality: 80 })
-    .toBuffer();
-  const b64 = small.toString('base64');
-
-  const res = await fetch(ANTHROPIC_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY || '',
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 200,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
-            { type: 'text', text: 'Describe this clipart design in one short phrase. Name the exact subject (for example: cats, flowers, teacher theme, coffee cups), the art style, and main colors. Max 15 words. Be specific about the subject.' },
-          ],
-        },
-      ],
-    }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error('Image analiz hatasi: ' + JSON.stringify(data).slice(0, 200));
-  }
-  let t = '';
-  for (const b of data.content || []) {
-    if (b.type === 'text') t += b.text;
-  }
-  return t.trim().slice(0, 150);
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
 }
 
-function buildAltText(altBase: string, rank: number, total: number): string {
-  const variants = [
-    altBase + ' high resolution clipart design',
-    altBase + ' printable digital download',
-    altBase + ' for crafts cards and scrapbooking',
-    altBase + ' commercial use clipart set',
-    altBase + ' watercolor style design element',
-    altBase + ' digital art file',
-    altBase + ' for sublimation and print projects',
-    altBase + ' instant download craft supply',
-    altBase + ' digital clipart illustration',
-    altBase + ' design ' + rank + ' of ' + total,
-  ];
-  const v = variants[(rank - 1) % variants.length];
-  return v.slice(0, 250);
+export interface DriveFolderContents {
+  folderId: string;
+  files: DriveFile[];
+  images: DriveFile[];
+  hasPdf: boolean;
+  hasPng: boolean;
+  hasJpg: boolean;
+  imageCount: number;
 }
 
-export async function POST(req: Request) {
-  const url = new URL(req.url);
-  const adminKey = url.searchParams.get('key');
-  if (!process.env.CRON_SECRET || adminKey !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export function extractFolderId(url: string): string | null {
+  const m1 = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m1) return m1[1];
+  const m2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m2) return m2[1];
+  return null;
+}
+
+export async function readDriveFolder(folderUrl: string): Promise<DriveFolderContents> {
+  const folderId = extractFolderId(folderUrl);
+  if (!folderId) throw new Error('Gecersiz Drive klasor linki');
+
+  const viewUrl = 'https://drive.google.com/embeddedfolderview?id=' + folderId + '#list';
+  const res = await fetch(viewUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!res.ok) throw new Error('Drive klasorune erisilemedi (herkese acik mi?): ' + res.status);
+
+  const html = await res.text();
+  const files: DriveFile[] = [];
+  const seen = new Set<string>();
+
+  const idRegex = /\/file\/d\/([a-zA-Z0-9_-]+)/g;
+  let m;
+  while ((m = idRegex.exec(html)) !== null) {
+    const fid = m[1];
+    if (seen.has(fid)) continue;
+    seen.add(fid);
+    files.push({ id: fid, name: '', mimeType: '' });
   }
 
-  let driveUrl = '';
-  try {
-    const bodyJson = await req.json();
-    driveUrl = bodyJson.driveUrl || '';
-  } catch (e) {
-    return NextResponse.json({ error: 'driveUrl gerekli' }, { status: 400 });
+  const titleRegex = /flip-entry-title[^>]*>([^<]+)</g;
+  const names: string[] = [];
+  while ((m = titleRegex.exec(html)) !== null) {
+    names.push(m[1].trim());
   }
-  if (!driveUrl) {
-    return NextResponse.json({ error: 'driveUrl bos' }, { status: 400 });
+  for (let i = 0; i < files.length && i < names.length; i++) {
+    files[i].name = names[i];
+    const lower = names[i].toLowerCase();
+    if (lower.endsWith('.png')) files[i].mimeType = 'image/png';
+    else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) files[i].mimeType = 'image/jpeg';
+    else if (lower.endsWith('.pdf')) files[i].mimeType = 'application/pdf';
+    else files[i].mimeType = 'application/octet-stream';
   }
 
-  const steps: string[] = [];
-  try {
-    steps.push('Drive klasoru okunuyor');
-    const folder = await readDriveFolder(driveUrl);
-    if (folder.imageCount === 0) {
-      return NextResponse.json(
-        { error: 'Klasorde resim bulunamadi. Herkese acik mi?', steps },
-        { status: 400 }
-      );
-    }
-    steps.push(folder.imageCount + ' resim, PNG: ' + folder.hasPng + ', JPG: ' + folder.hasJpg + ', PDF: ' + folder.hasPdf);
+  const images = files.filter(
+    (f) => f.mimeType === 'image/png' || f.mimeType === 'image/jpeg'
+  );
+  const hasPdf = files.some((f) => f.mimeType === 'application/pdf');
+  const hasPng = files.some((f) => f.mimeType === 'image/png');
+  const hasJpg = files.some((f) => f.mimeType === 'image/jpeg');
 
-    const top10 = folder.images.slice(0, 10);
+  return { folderId, files, images, hasPdf, hasPng, hasJpg, imageCount: images.length };
+}
 
-    const analyzeBuffers: Buffer[] = [];
-    for (let i = 0; i < Math.min(2, top10.length); i++) {
-      const b = await downloadDriveFile(top10[i].id);
-      analyzeBuffers.push(b);
-    }
+export async function downloadDriveFile(fileId: string): Promise<Buffer> {
+  const url = 'https://drive.google.com/uc?export=download&id=' + fileId;
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!res.ok) throw new Error('Dosya indirilemedi: ' + fileId);
+  const ab = await res.arrayBuffer();
+  return Buffer.from(ab);
+}
 
-    const descs: string[] = [];
-    for (const b of analyzeBuffers) {
-      try {
-        const d = await describeImageBuffer(b);
-        if (d && d.length > 3) descs.push(d);
-      } catch (e: any) {
-        steps.push('Resim analiz uyarisi: ' + (e.message || 'bilinmeyen'));
-      }
-    }
-
-    if (descs.length === 0) {
-      return NextResponse.json(
-        { error: 'Resimler analiz edilemedi. Drive dosyalari gercekten resim mi ve herkese acik mi?', steps },
-        { status: 400 }
-      );
-    }
-    steps.push('Gorseller analiz edildi: ' + descs[0].slice(0, 60));
-
-    const seo = await generateEtsySeo({
-      imageDescriptions: descs,
-      fileCount: folder.imageCount,
-      hasPdf: folder.hasPdf,
-      hasPng: folder.hasPng,
-      hasJpg: folder.hasJpg,
-    });
-    steps.push('SEO uretildi: ' + seo.title.slice(0, 55));
-
-    const taxonomyId = await findClipArtTaxonomyId();
-    steps.push('Taxonomy: ' + taxonomyId);
-
-    const listingId = await createDraftListing({
-      title: seo.title,
-      description: seo.description,
-      tags: seo.tags,
-      taxonomyId,
-    });
-    steps.push('Draft olusturuldu: ' + listingId);
-
-    for (let i = 0; i < top10.length; i++) {
-      let buf: Buffer;
-      if (i < analyzeBuffers.length) {
-        buf = analyzeBuffers[i];
-      } else {
-        buf = await downloadDriveFile(top10[i].id);
-      }
-      const alt = buildAltText(seo.altBase, i + 1, top10.length);
-      await uploadListingImage(listingId, buf, i + 1, alt);
-    }
-    steps.push(top10.length + ' resim + alt text yuklendi');
-
-    const db = supabaseAdmin();
-    const { data: tplRow } = await db
-      .from('etsy_settings')
-      .select('pdf_template_b64')
-      .eq('id', 1)
-      .single();
-
-    if (tplRow && tplRow.pdf_template_b64) {
-      try {
-        const tplBuf = Buffer.from(tplRow.pdf_template_b64, 'base64');
-        const newPdf = await rewritePdfDownloadLink(tplBuf, driveUrl);
-        await uploadListingFile(listingId, newPdf, 'download.pdf');
-        steps.push('PDF link degistirildi ve yuklendi');
-      } catch (pdfErr: any) {
-        steps.push('PDF HATASI: ' + pdfErr.message);
-      }
-    } else {
-      steps.push('UYARI: PDF sablonu yok');
-    }
-
-    return NextResponse.json({
-      success: true,
-      listingId,
-      etsyEditUrl: 'https://www.etsy.com/your/shops/me/listing-editor/edit/' + listingId,
-      seo,
-      steps,
-    });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message, steps }, { status: 500 });
-  }
+export async function getDriveThumbnail(fileId: string): Promise<string> {
+  const url = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400';
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!res.ok) throw new Error('Thumbnail alinamadi: ' + fileId);
+  const ab = await res.arrayBuffer();
+  return Buffer.from(ab).toString('base64');
 }
