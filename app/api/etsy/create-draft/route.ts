@@ -17,7 +17,6 @@ export const maxDuration = 300;
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
 async function describeImageBuffer(buf: Buffer): Promise<string> {
-  // AI 5MB limiti var. Analiz icin kucult (Etsy'ye orijinal yuklenecek).
   const small = await sharp(buf)
     .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 80 })
@@ -58,13 +57,13 @@ async function describeImageBuffer(buf: Buffer): Promise<string> {
 
 function buildAltText(altBase: string, rank: number, total: number): string {
   const variants = [
-    altBase + ' high resolution transparent PNG clipart',
-    altBase + ' printable digital download design',
+    altBase + ' high resolution clipart design',
+    altBase + ' printable digital download',
     altBase + ' for crafts cards and scrapbooking',
     altBase + ' commercial use clipart set',
     altBase + ' watercolor style design element',
-    altBase + ' transparent background PNG file',
-    altBase + ' digital art for sublimation and print',
+    altBase + ' digital art file',
+    altBase + ' for sublimation and print projects',
     altBase + ' instant download craft supply',
     altBase + ' digital clipart illustration',
     altBase + ' design ' + rank + ' of ' + total,
@@ -101,7 +100,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    steps.push(folder.imageCount + ' resim, PDF: ' + folder.hasPdf);
+    steps.push(folder.imageCount + ' resim, PNG: ' + folder.hasPng + ', JPG: ' + folder.hasJpg + ', PDF: ' + folder.hasPdf);
 
     const top10 = folder.images.slice(0, 10);
 
@@ -133,6 +132,8 @@ export async function POST(req: Request) {
       imageDescriptions: descs,
       fileCount: folder.imageCount,
       hasPdf: folder.hasPdf,
+      hasPng: folder.hasPng,
+      hasJpg: folder.hasJpg,
     });
     steps.push('SEO uretildi: ' + seo.title.slice(0, 55));
 
