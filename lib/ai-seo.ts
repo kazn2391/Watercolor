@@ -2,6 +2,8 @@ interface SeoInput {
   imageDescriptions: string[];
   fileCount: number;
   hasPdf: boolean;
+  hasPng: boolean;
+  hasJpg: boolean;
 }
 
 export interface SeoOutput {
@@ -14,26 +16,31 @@ export interface SeoOutput {
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
 export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
-  const productType = input.hasPdf
-    ? 'sublimation PNG bundle for apparel and product printing'
-    : 'printable watercolor clipart bundle for crafts and digital design';
+  let fileFormat = 'digital';
+  if (input.hasPng && !input.hasJpg) fileFormat = 'PNG';
+  else if (input.hasJpg && !input.hasPng) fileFormat = 'JPG';
+  else if (input.hasPng && input.hasJpg) fileFormat = 'PNG and JPG';
+
+  const formatRule = fileFormat === 'JPG'
+    ? 'The files are JPG. Describe them as high-resolution JPG printable files. Do NOT mention PNG or transparent background (JPG has no transparency). Focus on printable use.'
+    : fileFormat === 'PNG'
+      ? 'The files are PNG with transparent background. Emphasize transparent PNG, no white box, drops into any project.'
+      : 'The files include PNG and JPG. Mention transparent PNG plus printable JPG.';
 
   const rules = [
-    'You are a world-class Etsy SEO specialist for 2026.',
+    'You are a world-class Etsy SEO specialist for 2026. Better than any generic AI.',
     'Output ONLY valid JSON, no markdown, no preamble.',
     'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string"}.',
-    'TITLE: under 15 words. The first 50 characters MUST name the actual specific subject of the designs (if cats, start with Cat Clipart; if teacher themed, start with Teacher Sublimation; if floral, start with Floral Clipart). Do NOT start with generic words like Watercolor Clipart Bundle. Use the pipe character to separate clusters. Reads naturally for Google.',
-    'TAGS: exactly 13 array items. Each tag 20 characters or fewer. Multi-word long-tail phrases buyers search. No tag repeats a phrase from the title. None empty.',
-    'DESCRIPTION: first sentence clearly states exactly what the item is. Then detailed paragraphs separated by blank lines. Include a WHAT YOU GET line and a COMMERCIAL USE line. Include exact file count, 300 DPI, transparent PNG, instant download, US focus. Never say wall art.',
-    'altBase: a short 6 to 10 word phrase describing what the designs actually show including color and style.',
-    'CRITICAL: this art is created with AI. NEVER write hand painted, hand drawn, hand illustrated, hand-crafted or handmade. You may say AI-generated or digitally created or just describe the style.',
+    'TITLE: Start with the file count number then the specific subject (example: "20 Cat Clipart" or "30 Floral Sublimation"). Under 15 words. First 50 characters must carry the count plus the actual subject of the designs. Use the pipe character to separate clusters. Reads naturally for Google. No generic opener like "Watercolor Clipart Bundle".',
+    'TAGS: exactly 13 array items. Each tag 20 characters or fewer. MIX: about half should be SHORT 1-2 word tags (examples: cat png, cat clipart, watercolor, funny cat) and about half LONG-TAIL phrases (examples: grumpy cat clipart, retro cat png set). Always include the word watercolor in at least one tag. No tag repeats a phrase from the title. None empty.',
+    'DESCRIPTION: First sentence clearly states exactly what the item is and the file count. ' + formatRule + ' Then detailed paragraphs separated by blank lines. Include a line starting "WHAT YOU GET:" and a line starting "COMMERCIAL USE:". Tell the buyer to purchase, download the file, and start creating (do NOT say ZIP, say "download the file"). Do NOT mention "US buyers" or "across the US" or country. Do NOT start the description with "AI-generated" or put AI wording at the top. Only at the very END add a short discreet line: "Files made with AI." Keep that single mention small and at the bottom.',
+    'altBase: a short 6 to 10 word phrase describing what the designs actually show including subject, colors and style.',
   ].join(' ');
 
   const userMsg =
-    'Product: ' + productType + '. ' +
-    'This bundle has exactly ' + input.fileCount + ' design files. ' +
+    'This bundle has exactly ' + input.fileCount + ' design files in ' + fileFormat + ' format. ' +
     'The designs show: ' + input.imageDescriptions.join(' | ') + '. ' +
-    'Base the title first words, tags and altBase on the actual subject of these designs. Return JSON now.';
+    'Base the title (starting with the number ' + input.fileCount + '), tags and altBase on the actual subject of these designs. Return JSON now.';
 
   const res = await fetch(ANTHROPIC_API, {
     method: 'POST',
@@ -87,7 +94,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
       cleanTags.push(tag);
     }
   }
-  const fillers = ['digital download', 'instant download', 'png clipart', 'commercial use', 'craft supply', 'printable art'];
+  const fillers = ['cat clipart', 'watercolor', 'png clipart', 'digital download', 'instant download', 'craft supply'];
   let fi = 0;
   while (cleanTags.length < 13 && fi < fillers.length) {
     if (cleanTags.indexOf(fillers[fi]) === -1) {
