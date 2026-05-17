@@ -83,7 +83,8 @@ export async function uploadListingImage(
   const token = await getValidEtsyToken();
 
   const form = new FormData();
-  const blob = new Blob([imageBuffer], { type: 'image/png' });
+  const bytes = new Uint8Array(imageBuffer);
+  const blob = new Blob([bytes], { type: 'image/png' });
   form.append('image', blob, 'design-' + rank + '.png');
   form.append('rank', String(rank));
 
@@ -112,7 +113,8 @@ export async function uploadListingFile(
   const token = await getValidEtsyToken();
 
   const form = new FormData();
-  const blob = new Blob([pdfBuffer], { type: 'application/pdf' });
+  const bytes = new Uint8Array(pdfBuffer);
+  const blob = new Blob([bytes], { type: 'application/pdf' });
   form.append('file', blob, fileName);
   form.append('name', fileName);
 
