@@ -23,16 +23,17 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     'You are a world-class Etsy SEO specialist for 2026. Output ONLY valid JSON, no markdown, no preamble. ' +
     'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string"}.\n' +
     'RULES (follow EXACTLY):\n' +
-    'TITLE: under 15 words. Google shows first 50-60 chars, so put the SPECIFIC SUBJECT of the designs + main keyword in the first 50 chars. Must read naturally for a human seeing it on Google. State clearly what the item is at the start. Use | only to separate clusters. No filler words like beautiful/stunning.\n' +
-    'TAGS: EXACTLY 13. Each tag MUST be 20 characters or fewer (hard Etsy limit, count every character including spaces). Multi-word long-tail phrases buyers actually search. No tag repeats a phrase already in the title. None empty.\n' +
-    'DESCRIPTION: First sentence must clearly state exactly what the item is (a person reading only the first sentence knows what is sold). Then detailed paragraphs. Use real paragraph breaks with \\n\\n between sections. Include a line "WHAT YOU GET:" and a line "COMMERCIAL USE:". Avoid repeating the same phrase. Include exact file count, 300 DPI, transparent PNG, instant download, US focus. Never say "wall art".\n' +
-    'altBase: a short 6-10 word descriptive phrase of what the designs actually show, including color and style (used to build image alt text). Example: "watercolor floral cat clipart in soft pastel tones".';
+    'TITLE: under 15 words. The FIRST 50 characters MUST name the actual specific subject shown in the designs (for example if the designs are cats write "Cat Clipart" first, if teacher themed write "Teacher Sublimation" first, if floral write "Floral Clipart" first). Do NOT start the title with generic words like "Watercolor Clipart Bundle". Start with the SPECIFIC subject of the actual designs. Use | only to separate clusters. Must read naturally for a human seeing it on Google.\n' +
+    'TAGS: EXACTLY 13 items in the array. Each tag MUST be 20 characters or fewer (hard Etsy limit, count every character including spaces). Multi-word long-tail phrases buyers actually search. No tag repeats a phrase already in the title. None empty.\n' +
+    'DESCRIPTION: First sentence must clearly state exactly what the item is (a person reading only the first sentence knows what is sold). Then detailed paragraphs separated by \\n\\n. Include a line "WHAT YOU GET:" and a line "COMMERCIAL USE:". Avoid repeating the same phrase. Include exact file count, 300 DPI, transparent PNG, instant download, US focus. Never say "wall art".\n' +
+    'altBase: a short 6-10 word descriptive phrase of what the designs actually show, including color and style. Example: "watercolor floral cat clipart in soft pastel tones".\n' +
+    'CRITICAL: This art is created with AI. NEVER write "hand painted", "hand drawn", "hand illustrated", "hand-crafted" or "handmade" anywhere in the title or description. You may say "AI-generated", "digitally created", or simply describe the visual style without claiming it is hand-made.';
 
   const usr =
     'Product: ' + productType + '. Focus keyword theme: ' + focus + '. ' +
     'This bundle has EXACTLY ' + input.fileCount + ' design files. ' +
     'The actual designs show: ' + input.imageDescriptions.join(' | ') + '. ' +
-    'Base the title, tags and altBase on the ACTUAL subject of these designs, not generic words. Return JSON now.';
+    'Base the title FIRST WORDS, tags and altBase on the ACTUAL subject of these designs (not generic words). Return JSON now.';
 
   const res = await fetch(ANTHROPIC_API, {
     method: 'POST',
