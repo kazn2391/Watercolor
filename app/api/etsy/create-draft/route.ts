@@ -44,6 +44,23 @@ async function describeImage(b64: string): Promise<string> {
   return t.trim().slice(0, 120);
 }
 
+function buildAltText(altBase: string, rank: number, total: number): string {
+  const variants = [
+    altBase + ' high resolution transparent PNG clipart',
+    altBase + ' printable digital download design',
+    altBase + ' for crafts cards and scrapbooking',
+    altBase + ' commercial use clipart set',
+    altBase + ' watercolor style design element',
+    altBase + ' transparent background PNG file',
+    altBase + ' digital art for sublimation and print',
+    altBase + ' instant download craft supply',
+    altBase + ' hand-illustrated style clipart',
+    altBase + ' design ' + rank + ' of ' + total,
+  ];
+  const v = variants[(rank - 1) % variants.length];
+  return v.slice(0, 250);
+}
+
 export async function POST(req: Request) {
   const url = new URL(req.url);
   const adminKey = url.searchParams.get('key');
@@ -107,9 +124,10 @@ export async function POST(req: Request) {
 
     for (let i = 0; i < top10.length; i++) {
       const buf = await downloadDriveFile(top10[i].id);
-      await uploadListingImage(listingId, buf, i + 1);
+      const alt = buildAltText(seo.altBase, i + 1, top10.length);
+      await uploadListingImage(listingId, buf, i + 1, alt);
     }
-    steps.push(top10.length + ' resim yuklendi');
+    steps.push(top10.length + ' resim + alt text yuklendi');
 
     const db = supabaseAdmin();
     const { data: tplRow } = await db
@@ -119,22 +137,6 @@ export async function POST(req: Request) {
       .single();
 
     if (tplRow && tplRow.pdf_template_b64) {
-      const tplBuf = Buffer.from(tplRow.pdf_template_b64, 'base64');
-      const newPdf = await rewritePdfDownloadLink(tplBuf, driveUrl);
-      await uploadListingFile(listingId, newPdf, 'download.pdf');
-      steps.push('PDF (link degistirildi) yuklendi');
-    } else {
-      steps.push('UYARI: PDF sablonu yok');
-    }
-
-    return NextResponse.json({
-      success: true,
-      listingId,
-      etsyEditUrl: 'https://www.etsy.com/your/shops/me/listing-editor/edit/' + listingId,
-      seo,
-      steps,
-    });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message, steps }, { status: 500 });
-  }
-}
+      try {
+        const tplBuf = Buffer.from(tplRow.pdf_template_b64, 'base64');
+        const newPdf = await rewritePdfDownloadLink(tpl
