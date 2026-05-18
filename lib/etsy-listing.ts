@@ -74,6 +74,43 @@ export async function createDraftListing(input: CreateInput): Promise<number> {
   return data.listing_id;
 }
 
+export async function updateListingProperty(
+  listingId: number,
+  propertyId: number,
+  valueIds: number[],
+  values: string[]
+): Promise<boolean> {
+  try {
+    const token = await getValidEtsyToken();
+    const body = new URLSearchParams();
+    for (const v of valueIds) {
+      body.append('value_ids', String(v));
+    }
+    for (const v of values) {
+      body.append('values', v);
+    }
+
+    const res = await fetch(
+      ETSY_API + '/shops/' + SHOP_ID + '/listings/' + listingId + '/properties/' + propertyId,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'x-api-key': getEtsyApiKeyHeader(),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      }
+    );
+    if (!res.ok) {
+      return false;
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 export async function uploadListingImage(
   listingId: number,
   imageBuffer: Buffer,
