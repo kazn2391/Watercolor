@@ -35,16 +35,16 @@ const COLOR_MAP: Record<string, number> = {
 };
 
 const SUBJECT_MAP: Record<string, number> = {
-  'abstract & geometric': 2817, animal: 2558, 'anime & cartoon': 2559,
-  'architecture & cityscape': 3641, 'beach & tropical': 406, 'comics & manga': 2562,
-  'fantasy & sci fi': 421, fashion: 3691, flowers: 2952, 'food & drink': 425,
-  'geography & locale': 2957, 'horror & gothic': 2953, 'humorous saying': 2954,
-  'inspirational saying': 2955, 'landscape & scenery': 3644, 'love & friendship': 439,
-  military: 2549, music: 442, nautical: 443, 'patriotic & flags': 447,
-  'people & portrait': 3694, 'pet portrait': 2340, 'phrase & saying': 2962,
-  'plants & trees': 2530, religious: 456, 'science & tech': 458,
-  'sports & fitness': 461, 'stars & celestial': 2532, steampunk: 2533,
-  'travel & transportation': 470, 'western & cowboy': 474, zodiac: 2534,
+  'abstract and geometric': 2817, animal: 2558, 'anime and cartoon': 2559,
+  'architecture and cityscape': 3641, 'beach and tropical': 406, 'comics and manga': 2562,
+  'fantasy and sci fi': 421, fashion: 3691, flowers: 2952, 'food and drink': 425,
+  'geography and locale': 2957, 'horror and gothic': 2953, 'humorous saying': 2954,
+  'inspirational saying': 2955, 'landscape and scenery': 3644, 'love and friendship': 439,
+  military: 2549, music: 442, nautical: 443, 'patriotic and flags': 447,
+  'people and portrait': 3694, 'pet portrait': 2340, 'phrase and saying': 2962,
+  'plants and trees': 2530, religious: 456, 'science and tech': 458,
+  'sports and fitness': 461, 'stars and celestial': 2532, steampunk: 2533,
+  'travel and transportation': 470, 'western and cowboy': 474, zodiac: 2534,
 };
 
 const OCCASION_MAP: Record<string, number> = {
@@ -54,8 +54,8 @@ const OCCASION_MAP: Record<string, number> = {
 
 const HOLIDAY_MAP: Record<string, number> = {
   christmas: 35, easter: 37, halloween: 39, thanksgiving: 46,
-  "valentine's day": 48, "mother's day": 43, "father's day": 38,
-  "new year's": 44, "st patrick's day": 45,
+  'valentines day': 48, 'mothers day': 43, 'fathers day': 38,
+  'new years': 44, 'st patricks day': 45,
 };
 
 async function describeImageBuffer(buf: Buffer): Promise<string> {
@@ -190,39 +190,33 @@ export async function POST(req: Request) {
     });
     steps.push('Draft olusturuldu: ' + listingId);
 
-    // Craft type (zorunlu, sabit 4 deger)
     const okCraft = await updateListingProperty(listingId, PROP_CRAFT, CRAFT_VALUES, CRAFT_NAMES);
     steps.push('Craft type: ' + (okCraft ? 'OK' : 'atlandi'));
 
-    // Primary color
     const pc = COLOR_MAP[(seo.primaryColor || '').toLowerCase().trim()];
     if (pc) {
       const ok = await updateListingProperty(listingId, PROP_PRIMARY_COLOR, [pc], [seo.primaryColor]);
       steps.push('Primary color (' + seo.primaryColor + '): ' + (ok ? 'OK' : 'atlandi'));
     }
 
-    // Secondary color
     const sc = COLOR_MAP[(seo.secondaryColor || '').toLowerCase().trim()];
     if (sc && sc !== pc) {
       const ok = await updateListingProperty(listingId, PROP_SECONDARY_COLOR, [sc], [seo.secondaryColor]);
       steps.push('Secondary color (' + seo.secondaryColor + '): ' + (ok ? 'OK' : 'atlandi'));
     }
 
-    // Art subject
     const subj = SUBJECT_MAP[(seo.artSubject || '').toLowerCase().trim()];
     if (subj) {
       const ok = await updateListingProperty(listingId, PROP_SUBJECT, [subj], [seo.artSubject]);
       steps.push('Art subject (' + seo.artSubject + '): ' + (ok ? 'OK' : 'atlandi'));
     }
 
-    // Occasion (sadece belirgin ise)
     const occ = OCCASION_MAP[(seo.occasion || '').toLowerCase().trim()];
     if (occ) {
       const ok = await updateListingProperty(listingId, PROP_OCCASION, [occ], [seo.occasion]);
       steps.push('Occasion (' + seo.occasion + '): ' + (ok ? 'OK' : 'atlandi'));
     }
 
-    // Holiday (sadece belirgin ise)
     const hol = HOLIDAY_MAP[(seo.holiday || '').toLowerCase().trim()];
     if (hol) {
       const ok = await updateListingProperty(listingId, PROP_HOLIDAY, [hol], [seo.holiday]);
