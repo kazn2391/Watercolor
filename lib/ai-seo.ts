@@ -33,23 +33,23 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
       : 'The files include PNG and JPG. Mention transparent PNG plus printable JPG.';
 
   const colorList = 'Beige, Black, Blue, Bronze, Brown, Clear, Copper, Gold, Gray, Green, Orange, Pink, Purple, Rainbow, Red, Rose gold, Silver, White, Yellow';
-  const subjectList = 'Abstract & geometric, Animal, Anime & cartoon, Architecture & cityscape, Beach & tropical, Comics & manga, Fantasy & Sci Fi, Fashion, Flowers, Food & drink, Geography & locale, Horror & gothic, Humorous saying, Inspirational saying, Landscape & scenery, Love & friendship, Military, Music, Nautical, Patriotic & flags, People & portrait, Pet portrait, Phrase & saying, Plants & trees, Religious, Science & tech, Sports & fitness, Stars & celestial, Steampunk, Travel & transportation, Western & cowboy, Zodiac';
+  const subjectList = 'Abstract and geometric, Animal, Anime and cartoon, Architecture and cityscape, Beach and tropical, Comics and manga, Fantasy and Sci Fi, Fashion, Flowers, Food and drink, Geography and locale, Horror and gothic, Humorous saying, Inspirational saying, Landscape and scenery, Love and friendship, Military, Music, Nautical, Patriotic and flags, People and portrait, Pet portrait, Phrase and saying, Plants and trees, Religious, Science and tech, Sports and fitness, Stars and celestial, Steampunk, Travel and transportation, Western and cowboy, Zodiac';
   const occasionList = 'none, Birthday, Anniversary, Baby shower, Wedding, Graduation, Engagement, Bridal shower';
-  const holidayList = 'none, Christmas, Easter, Halloween, Thanksgiving, Valentine\\'s Day, Mother\\'s Day, Father\\'s Day, New Year\\'s, St Patrick\\'s Day';
+  const holidayList = 'none, Christmas, Easter, Halloween, Thanksgiving, Valentines Day, Mothers Day, Fathers Day, New Years, St Patricks Day';
 
   const rules = [
     'You are a world-class Etsy SEO specialist for 2026. Better than any generic AI.',
     'Output ONLY valid JSON, no markdown, no preamble.',
     'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string","primaryColor":"string","secondaryColor":"string","artSubject":"string","occasion":"string","holiday":"string"}.',
-    'TITLE: Start with the file count number then the specific subject (example: "20 Cat Clipart"). Under 15 words. First 50 characters carry the count plus actual subject. Use the pipe character to separate clusters. Reads naturally for Google. No generic opener like "Watercolor Clipart Bundle".',
+    'TITLE: Start with the file count number then the specific subject (example: 20 Cat Clipart). Under 15 words. First 50 characters carry the count plus actual subject. Use the pipe character to separate clusters. Reads naturally for Google. No generic opener like Watercolor Clipart Bundle.',
     'TAGS: exactly 13 array items. Each tag 20 characters or fewer. MIX: about half SHORT 1-2 word tags (cat png, cat clipart, watercolor) and half LONG-TAIL (grumpy cat clipart). Always include the word watercolor in at least one tag. No tag repeats a phrase from the title. None empty.',
-    'DESCRIPTION: First sentence clearly states what the item is and the file count. ' + formatRule + ' Then paragraphs separated by blank lines. Include a line starting "WHAT YOU GET:" and a line starting "COMMERCIAL USE:". Tell the buyer to purchase, download the file, and start creating (do NOT say ZIP, say "download the file"). Do NOT mention "US buyers" or country. Do NOT put AI wording at the top. Only at the very END add a short discreet line: "Files made with AI."',
+    'DESCRIPTION: First sentence clearly states what the item is and the file count. ' + formatRule + ' Then paragraphs separated by blank lines. Include a line starting WHAT YOU GET: and a line starting COMMERCIAL USE:. Tell the buyer to purchase, download the file, and start creating (do NOT say ZIP, say download the file). Do NOT mention US buyers or country. Do NOT put AI wording at the top. Only at the very END add a short discreet line: Files made with AI.',
     'altBase: a short 6 to 10 word phrase describing the designs including subject, colors and style.',
     'primaryColor: the single most dominant color of the designs. Choose EXACTLY ONE from this list: ' + colorList + '.',
     'secondaryColor: the second most dominant color. Choose EXACTLY ONE different one from: ' + colorList + '.',
-    'artSubject: choose EXACTLY ONE best match from: ' + subjectList + '. For cats/dogs/animals pick Animal. For flowers pick Flowers.',
-    'occasion: choose ONE from: ' + occasionList + '. Use "none" unless the designs clearly target a specific occasion.',
-    'holiday: choose ONE from: ' + holidayList + '. Use "none" unless the designs are clearly that holiday theme.',
+    'artSubject: choose EXACTLY ONE best match from: ' + subjectList + '. For cats dogs animals pick Animal. For flowers pick Flowers.',
+    'occasion: choose ONE from: ' + occasionList + '. Use none unless the designs clearly target a specific occasion.',
+    'holiday: choose ONE from: ' + holidayList + '. Use none unless the designs are clearly that holiday theme.',
   ].join(' ');
 
   const userMsg =
