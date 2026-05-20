@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import MasonryGrid from '@/components/MasonryGrid';
+import NewListings from './components/NewListings';
 
 export const revalidate = 60;
 
@@ -174,6 +175,9 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      {/* FRESH FROM THE STUDIO - new listings from Etsy section */}
+      <NewListings />
 
       {/* HOW IT WORKS - replaces personal story */}
       <section className="py-16 md:py-24 bg-bone">
