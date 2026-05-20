@@ -3,33 +3,33 @@ import { getCachedNewListings } from '@/lib/etsy-new-listings';
 export default async function NewListings() {
   const listings = await getCachedNewListings(12);
 
-  if (listings.length === 0) {
+  if (!listings || listings.length === 0) {
     return null;
   }
 
+  const sectionUrl = 'https://www.etsy.com/shop/SuzyFlowArt?section_id=53910331';
+
   return (
-    <section className="w-full py-12 px-4 bg-white">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-end justify-between mb-8">
+    <section className="py-16 md:py-24 bg-white">
+      <div className="container-x">
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-10 md:mb-12">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-              Fresh from the Studio
+            <p className="text-eyebrow mb-3">Fresh from the studio</p>
+            <h2 className="font-display text-display-md font-light text-balance leading-tight">
+              Just <em className="italic text-clay">added.</em>
             </h2>
-            <p className="text-gray-600 mt-2">
-              Newest watercolor clipart added to my shop
-            </p>
           </div>
           
-            href="https://www.etsy.com/shop/SuzyFlowArt?section_id=53910331"
+            href={sectionUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden md:inline-block text-sm font-medium text-gray-900 hover:text-pink-600 underline"
+            className="button-ghost"
           >
-            View all on Etsy →
+            View all new designs
           </a>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {listings.map((listing) => (
             
               key={listing.listing_id}
@@ -38,37 +38,26 @@ export default async function NewListings() {
               rel="noopener noreferrer"
               className="group block"
             >
-              <div className="aspect-square overflow-hidden rounded-lg bg-gray-100 mb-2">
-                {listing.image_url && (
+              <div className="aspect-square overflow-hidden rounded-2xl bg-cream mb-3">
+                {listing.image_url ? (
                   <img
                     src={listing.image_url}
                     alt={listing.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
                   />
-                )}
+                ) : null}
               </div>
-              <h3 className="text-sm text-gray-900 line-clamp-2 group-hover:text-pink-600">
+              <h3 className="text-sm text-ink line-clamp-2 group-hover:text-clay transition-colors">
                 {listing.title}
               </h3>
-              {listing.price && (
-                <p className="text-sm font-medium text-gray-700 mt-1">
+              {listing.price ? (
+                <p className="text-sm font-medium text-ink/70 mt-1">
                   {listing.price}
                 </p>
-              )}
+              ) : null}
             </a>
           ))}
-        </div>
-
-        <div className="text-center mt-8 md:hidden">
-          
-            href="https://www.etsy.com/shop/SuzyFlowArt?section_id=53910331"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-medium text-gray-900 hover:text-pink-600 underline"
-          >
-            View all on Etsy →
-          </a>
         </div>
       </div>
     </section>
