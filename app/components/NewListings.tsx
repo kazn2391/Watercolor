@@ -1,16 +1,23 @@
-import { getCachedNewListings } from '@/lib/etsy-new-listings';
+type Listing = {
+  listing_id: number;
+  title: string;
+  url: string;
+  image_url: string;
+  price: string | null;
+  num_favorers: number;
+  created_at_etsy: string | null;
+};
 
-const SHOP_URL = 'https://www.etsy.com/shop/SuzyFlowArt';
-const SECTION_ID = '53910331';
+type Props = {
+  listings: Listing[];
+};
 
-export default async function NewListings() {
-  const listings = await getCachedNewListings(12);
-
+export default function NewListings({ listings }: Props) {
   if (!listings || listings.length === 0) {
     return null;
   }
 
-  const sectionUrl = SHOP_URL + '?section_id=' + SECTION_ID;
+  const sectionUrl = 'https://www.etsy.com/shop/SuzyFlowArt?ref=section_id=53910331';
 
   return (
     <section className="py-16 md:py-24 bg-white">
@@ -29,7 +36,7 @@ export default async function NewListings() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {listings.map((listing) => (
-            <a
+            
               key={listing.listing_id}
               href={listing.url}
               target="_blank"
