@@ -1,23 +1,16 @@
-type Listing = {
-  listing_id: number;
-  title: string;
-  url: string;
-  image_url: string;
-  price: string | null;
-  num_favorers: number;
-  created_at_etsy: string | null;
-};
+import { getCachedNewListings } from '@/lib/etsy-new-listings';
 
-type Props = {
-  listings: Listing[];
-};
+const SHOP_URL = 'https://www.etsy.com/shop/SuzyFlowArt';
+const SECTION_ID = '53910331';
 
-export default function NewListings({ listings }: Props) {
+export default async function NewListings() {
+  const listings = await getCachedNewListings(12);
+
   if (!listings || listings.length === 0) {
     return null;
   }
 
-  const sectionUrl = 'https://www.etsy.com/shop/SuzyFlowArt?ref=section_id=53910331';
+  const sectionUrl = SHOP_URL + '?section_id=' + SECTION_ID;
 
   return (
     <section className="py-16 md:py-24 bg-white">
