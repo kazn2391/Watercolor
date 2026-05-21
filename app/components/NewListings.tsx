@@ -1,16 +1,23 @@
-import { getCachedNewListings } from '@/lib/etsy-new-listings';
+type Listing = {
+  listing_id: number;
+  title: string;
+  url: string;
+  image_url: string;
+  price: string | null;
+  num_favorers: number;
+  created_at_etsy: string | null;
+};
 
-const SHOP_URL = 'https://www.etsy.com/shop/SuzyFlowArt';
-const SECTION_ID = '53910331';
+type Props = {
+  listings: Listing[];
+};
 
-export default async function NewListings() {
-  const listings = await getCachedNewListings(12);
-
+export default function NewListings({ listings }: Props) {
   if (!listings || listings.length === 0) {
     return null;
   }
 
-  const sectionUrl = SHOP_URL + '?section_id=' + SECTION_ID;
+  const shopUrl = 'https://www.etsy.com/shop/SuzyFlowArt';
 
   return (
     <section className="py-16 md:py-24 bg-white">
@@ -22,7 +29,7 @@ export default async function NewListings() {
               Just <em className="italic text-clay">added.</em>
             </h2>
           </div>
-          <a href={sectionUrl} target="_blank" rel="noopener noreferrer" className="button-ghost">
+          <a href={shopUrl} target="_blank" rel="noopener noreferrer" className="button-ghost">
             View all new designs
           </a>
         </div>
