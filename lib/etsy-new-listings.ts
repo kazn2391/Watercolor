@@ -21,7 +21,7 @@ export async function fetchSectionListingsFromEtsy(limit: number = 24): Promise<
   const token = await getValidEtsyToken();
   if (!token) throw new Error('Etsy not authenticated');
 
-  const url = 'https://openapi.etsy.com/v3/application/shops/' + SHOP_ID + '/shop-sections/' + SECTION_ID + '/listings/active?limit=' + limit + '&includes=Images';
+  const url = 'https://openapi.etsy.com/v3/application/shops/' + SHOP_ID + '/listings/active?shop_section_ids=' + SECTION_ID + '&limit=' + limit + '&sort_on=created&sort_order=desc&includes=Images';
 
   const res = await fetch(url, {
     headers: {
