@@ -26,7 +26,7 @@ export async function fetchSectionListingsFromEtsy(limit: number = 24): Promise<
 
   const res = await fetch(url, {
     headers: {
-      'x-api-key': ETSY_API_KEY,
+      'x-api-key': ETSY_API_KEY + ':' + ETSY_SHARED_SECRET,
       'Authorization': 'Bearer ' + token
     }
   });
