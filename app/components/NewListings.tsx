@@ -27,33 +27,17 @@ export default function NewListings({ listings }: Props) {
               Just <em className="italic text-clay">added.</em>
             </h2>
           </div>
-          
-            href="https://www.etsy.com/shop/SuzyFlowArt"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="button-ghost"
-          >
+          <a href="https://www.etsy.com/shop/SuzyFlowArt" target="_blank" rel="noopener noreferrer" className="button-ghost">
             View all new designs
           </a>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {listings.map((listing) => (
-            
-              key={listing.listing_id}
-              href={listing.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group block"
-            >
+            <a key={listing.listing_id} href={listing.url} target="_blank" rel="noopener noreferrer" className="group block">
               <div className="aspect-square overflow-hidden rounded-2xl bg-cream mb-3">
                 {listing.image_url ? (
-                  <img
-                    src={listing.image_url}
-                    alt={listing.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
+                  <img src={listing.image_url} alt={listing.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                 ) : null}
               </div>
               <h3 className="text-sm text-ink line-clamp-2 group-hover:text-clay transition-colors">
