@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import MasonryGrid from '@/components/MasonryGrid';
 import NewListings from './components/NewListings';
+import { getCachedNewListings } from '@/lib/etsy-new-listings';
 
 export const revalidate = 60;
 
@@ -19,6 +20,8 @@ export default async function HomePage() {
     .select('*')
     .order('display_order')
     .limit(8);
+
+  const newListings = await getCachedNewListings(12);
 
   const heroImages = featured?.slice(0, 6) || [];
 
@@ -56,7 +59,7 @@ export default async function HomePage() {
 
               <div className="mt-10 flex flex-wrap gap-3 items-center">
                 <Link href="/shop" className="button-primary">
-                  Explore everything →
+                  Explore everything
                 </Link>
                 <Link href="/watercolor-cat-clipart" className="pill !py-2.5 !px-5">
                   🐱 Start with cats
@@ -119,14 +122,14 @@ export default async function HomePage() {
             <h2 className="font-display text-3xl md:text-4xl font-light text-balance">
               Pick your <em className="italic text-clay">vibe.</em>
             </h2>
-            <Link href="/categories" className="button-ghost">View all collections →</Link>
+            <Link href="/categories" className="button-ghost">View all collections</Link>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {categories?.map((cat, i) => (
               <Link
                 key={cat.id}
-                href={`/${cat.slug}`}
+                href={'/' + cat.slug}
                 className="group relative aspect-[5/6] overflow-hidden rounded-2xl bg-cream hover-pop"
               >
                 {cat.hero_image_url && (
@@ -153,7 +156,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* MASONRY GRID */}
+      {/* MASONRY GRID - MOST LOVED */}
       <section className="py-16 md:py-24">
         <div className="container-x">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-10 md:mb-12">
@@ -163,7 +166,7 @@ export default async function HomePage() {
                 The ones <em className="italic">everyone</em> is pinning.
               </h2>
             </div>
-            <Link href="/shop" className="button-ghost">See all 1,600+ →</Link>
+            <Link href="/shop" className="button-ghost">See all 1,600+</Link>
           </div>
 
           {featured && featured.length > 0 ? (
@@ -176,10 +179,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* FRESH FROM THE STUDIO - new listings from Etsy section */}
-      <NewListings />
+      {/* FRESH FROM THE STUDIO - JUST ADDED */}
+      <NewListings listings={newListings} />
 
-      {/* HOW IT WORKS - replaces personal story */}
+      {/* HOW IT WORKS */}
       <section className="py-16 md:py-24 bg-bone">
         <div className="container-x">
           <div className="max-w-3xl mx-auto text-center mb-16">
@@ -208,7 +211,7 @@ export default async function HomePage() {
               </div>
               <h3 className="font-display text-2xl font-light mb-3">02. Buy on Etsy</h3>
               <p className="text-ink/70 text-sm leading-relaxed">
-                Tap "Buy on Etsy" to complete checkout in the SuzyFlowArt shop.
+                Tap Buy on Etsy to complete checkout in the SuzyFlowArt shop.
                 Secure payment, Star Seller protection, every order tracked.
               </p>
             </div>
@@ -244,7 +247,7 @@ export default async function HomePage() {
               { emoji: '🏠', label: 'Wall prints' },
               { emoji: '📱', label: 'Phone wallpapers' },
               { emoji: '🎁', label: 'Gift wrap' },
-              { emoji: '✂️', label: 'Stickers & decals' },
+              { emoji: '✂️', label: 'Stickers and decals' },
               { emoji: '📚', label: 'Scrapbooks' },
             ].map((item) => (
               <div key={item.label} className="bg-bone rounded-2xl p-5 flex items-center gap-3">
@@ -281,7 +284,7 @@ export default async function HomePage() {
               rel="noopener"
               className="inline-flex items-center gap-2 bg-cream text-ink px-8 py-4 rounded-full text-sm font-medium tracking-wide hover:bg-clay hover:text-cream transition-all hover:scale-105"
             >
-              Shop on Etsy →
+              Shop on Etsy
             </Link>
           </div>
         </div>
