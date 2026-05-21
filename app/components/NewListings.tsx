@@ -17,8 +17,6 @@ export default function NewListings({ listings }: Props) {
     return null;
   }
 
-  const shopUrl = 'https://www.etsy.com/shop/SuzyFlowArt';
-
   return (
     <section className="py-16 md:py-24 bg-white">
       <div className="container-x">
@@ -29,7 +27,12 @@ export default function NewListings({ listings }: Props) {
               Just <em className="italic text-clay">added.</em>
             </h2>
           </div>
-          <a href={shopUrl} target="_blank" rel="noopener noreferrer" className="button-ghost">
+          
+            href="https://www.etsy.com/shop/SuzyFlowArt"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="button-ghost"
+          >
             View all new designs
           </a>
         </div>
