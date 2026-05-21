@@ -22,19 +22,14 @@ export default async function NewListings() {
               Just <em className="italic text-clay">added.</em>
             </h2>
           </div>
-          
-            href={sectionUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="button-ghost"
-          >
+          <a href={sectionUrl} target="_blank" rel="noopener noreferrer" className="button-ghost">
             View all new designs
           </a>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
           {listings.map((listing) => (
-            
+            <a
               key={listing.listing_id}
               href={listing.url}
               target="_blank"
