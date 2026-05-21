@@ -4,6 +4,7 @@ import { getValidEtsyToken } from './etsy-auth';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const ETSY_API_KEY = process.env.ETSY_API_KEY!;
+const ETSY_SHARED_SECRET = process.env.ETSY_SHARED_SECRET!;
 const SHOP_ID = '49999102';
 const SECTION_ID = '53910331';
 
