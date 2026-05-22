@@ -31,36 +31,77 @@ export const metadata: Metadata = {
     'watercolor clipart', 'cat clipart', 'woman watercolor art',
     'peeking animal clipart', 'whimsical clipart', 'junk journal',
     'digital download', 'PNG clipart', 'printable art',
+    'sublimation design', 'floral clipart', 'birthday card design',
+    'AI watercolor', 'Etsy clipart', 'commercial use clipart',
   ],
   authors: [{ name: 'SuzyFlowArt' }],
   creator: 'SuzyFlowArt',
   publisher: 'SuzyFlowArt',
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_US',
     siteName: 'Watercolor Clipart',
     title: 'Watercolor Clipart — AI-Crafted Digital Art',
-    description: '1,600+ AI-crafted watercolor clipart designs by SuzyFlowArt. Instant digital downloads.',
+    description: '1,600+ AI-crafted watercolor clipart designs by SuzyFlowArt. Instant digital downloads on Etsy.',
     url: SITE_URL,
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Watercolor Clipart by SuzyFlowArt',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Watercolor Clipart',
-    description: '1,600+ AI-crafted watercolor designs by SuzyFlowArt',
+    title: 'Watercolor Clipart by SuzyFlowArt',
+    description: '1,600+ AI-crafted watercolor designs · Star Seller on Etsy',
+    images: ['/opengraph-image'],
   },
   robots: {
-    index: true, follow: true,
-    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
   },
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/apple-icon.png',
+  },
+  category: 'shopping',
+  applicationName: 'Watercolor Clipart',
+  referrer: 'origin-when-cross-origin',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+};
+
+export const viewport = {
+  themeColor: '#fef4ec',
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${inter.variable}`}>
+    <html lang="en" className={fraunces.variable + ' ' + inter.variable}>
       <head>
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="canonical" href={SITE_URL} />
         <meta name="google-site-verification" content="SRo04_QyIqQjBqZlovlY9AJyIpcRXuVR6rayrlYFhmI" />
+        <link rel="preconnect" href="https://i.etsystatic.com" />
+        <link rel="dns-prefetch" href="https://i.etsystatic.com" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd()) }}
