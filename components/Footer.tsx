@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 export default function Footer() {
   return (
     <footer className="bg-ink text-cream/80 mt-24">
@@ -15,7 +17,6 @@ export default function Footer() {
               available exclusively on Etsy with Star Seller protection.
             </p>
           </div>
-
           <div className="md:col-span-2">
             <p className="text-eyebrow !text-cream/50 mb-4">Shop</p>
             <ul className="space-y-2 text-sm">
@@ -25,7 +26,6 @@ export default function Footer() {
               <li><Link href="/woman-art" className="hover:text-clay transition-colors">Women</Link></li>
             </ul>
           </div>
-
           <div className="md:col-span-2">
             <p className="text-eyebrow !text-cream/50 mb-4">Themes</p>
             <ul className="space-y-2 text-sm">
@@ -35,20 +35,18 @@ export default function Footer() {
               <li><Link href="/birthday-celebration" className="hover:text-clay transition-colors">Birthday</Link></li>
             </ul>
           </div>
-
           <div className="md:col-span-3">
             <p className="text-eyebrow !text-cream/50 mb-4">Connect</p>
             <ul className="space-y-2 text-sm">
-              <li><a href="https://www.etsy.com/shop/SuzyFlowArt" target="_blank" rel="noopener" className="hover:text-clay transition-colors">Etsy Shop →</a></li>
-              <li><a href="https://www.pinterest.com/suzyflowart" target="_blank" rel="noopener" className="hover:text-clay transition-colors">Pinterest →</a></li>
-              <li><a href="https://www.instagram.com/suzyflowart" target="_blank" rel="noopener" className="hover:text-clay transition-colors">Instagram →</a></li>
+              <li><a href="https://www.etsy.com/shop/SuzyFlowArt" target="_blank" rel="noopener" className="hover:text-clay transition-colors">Etsy Shop</a></li>
+              <li><a href="https://www.pinterest.com/suzyflowart" target="_blank" rel="noopener" className="hover:text-clay transition-colors">Pinterest</a></li>
+              <li><a href="https://www.instagram.com/suzyflowart" target="_blank" rel="noopener" className="hover:text-clay transition-colors">Instagram</a></li>
               <li><a href="mailto:suzanpod@gmail.com" className="hover:text-clay transition-colors">Email us</a></li>
             </ul>
           </div>
         </div>
-
         <div className="mt-16 pt-8 border-t border-cream/10 flex flex-wrap justify-between gap-4 text-xs text-cream/40">
-          <p>© {new Date().getFullYear()} SuzyFlowArt · Watercolor Clipart</p>
+          <p>© {CURRENT_YEAR} SuzyFlowArt · Watercolor Clipart</p>
           <p>Curated digital art · Star Seller on Etsy</p>
         </div>
       </div>
