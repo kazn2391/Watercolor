@@ -8,14 +8,14 @@ import { getCachedNewListings } from '@/lib/etsy-new-listings';
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const { data: featured } = await supabase
+  const featuredRes = await supabase
     .from('listings')
     .select('*')
     .eq('state', 'active')
     .order('num_favorers', { ascending: false })
     .limit(40);
 
-  const { data: categories } = await supabase
+  const categoriesRes = await supabase
     .from('categories')
     .select('*')
     .order('display_order')
@@ -23,7 +23,9 @@ export default async function HomePage() {
 
   const newListings = await getCachedNewListings(12);
 
-  const heroImages = featured?.slice(0, 6) || [];
+  const featured = featuredRes.data || [];
+  const categories = categoriesRes.data || [];
+  const heroImages = featured.slice(0, 4);
 
   return (
     <>
@@ -33,7 +35,7 @@ export default async function HomePage() {
           <div className="grid lg:grid-cols-12 gap-6 lg:gap-10 items-center">
             <div className="lg:col-span-7 relative z-10">
               <div className="inline-flex items-center gap-2 bg-bone border border-ink/10 rounded-full px-4 py-1.5 mb-6">
-                <span className="text-lg">✨</span>
+                <span className="text-lg" aria-hidden="true">✨</span>
                 <span className="text-xs font-medium tracking-wide text-ink/70">
                   AI-crafted watercolor art · ⭐ Star Seller on Etsy
                 </span>
@@ -43,7 +45,7 @@ export default async function HomePage() {
                 Watercolor that{' '}
                 <em className="italic text-clay relative inline-block">
                   pops.
-                  <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" preserveAspectRatio="none">
+                  <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true">
                     <path d="M2 8 Q50 2 100 6 T198 4" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
                   </svg>
                 </em>
@@ -83,33 +85,55 @@ export default async function HomePage() {
             </div>
 
             <div className="lg:col-span-5 relative h-[400px] md:h-[500px] lg:h-[600px]">
-              {heroImages.length > 0 && (
-                <>
-                  {heroImages[0]?.main_image_url && (
-                    <div className="absolute top-0 right-0 w-[55%] aspect-square rounded-3xl overflow-hidden shadow-2xl tilt-right hover-pop">
-                      <Image src={heroImages[0].main_image_url} alt={heroImages[0].title} fill className="object-cover" priority />
-                    </div>
-                  )}
-                  {heroImages[1]?.main_image_url && (
-                    <div className="absolute top-[8%] left-0 w-[40%] aspect-square rounded-3xl overflow-hidden shadow-xl tilt-left hover-pop animate-float">
-                      <Image src={heroImages[1].main_image_url} alt={heroImages[1].title} fill className="object-cover" priority />
-                    </div>
-                  )}
-                  {heroImages[2]?.main_image_url && (
-                    <div className="absolute top-[42%] left-[18%] w-[45%] aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl tilt-right hover-pop">
-                      <Image src={heroImages[2].main_image_url} alt={heroImages[2].title} fill className="object-cover" priority />
-                    </div>
-                  )}
-                  {heroImages[3]?.main_image_url && (
-                    <div className="absolute bottom-0 right-[8%] w-[42%] aspect-square rounded-3xl overflow-hidden shadow-xl tilt-left hover-pop">
-                      <Image src={heroImages[3].main_image_url} alt={heroImages[3].title} fill className="object-cover" />
-                    </div>
-                  )}
-                </>
-              )}
-              <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose/40 rounded-full blur-3xl -z-10" />
-              <div className="absolute bottom-0 left-0 w-40 h-40 bg-sage/30 rounded-full blur-3xl -z-10" />
-              <div className="absolute top-1/2 -right-8 w-24 h-24 bg-gold/30 rounded-full blur-2xl -z-10" />
+              {heroImages[0]?.main_image_url ? (
+                <div className="absolute top-0 right-0 w-[55%] aspect-square rounded-3xl overflow-hidden shadow-2xl tilt-right hover-pop">
+                  <Image
+                    src={heroImages[0].main_image_url}
+                    alt={heroImages[0].title || 'Watercolor clipart'}
+                    fill
+                    sizes="(max-width: 1024px) 50vw, 30vw"
+                    className="object-cover"
+                    priority
+                    fetchPriority="high"
+                  />
+                </div>
+              ) : null}
+              {heroImages[1]?.main_image_url ? (
+                <div className="absolute top-[8%] left-0 w-[40%] aspect-square rounded-3xl overflow-hidden shadow-xl tilt-left hover-pop animate-float">
+                  <Image
+                    src={heroImages[1].main_image_url}
+                    alt={heroImages[1].title || 'Watercolor clipart'}
+                    fill
+                    sizes="(max-width: 1024px) 40vw, 22vw"
+                    className="object-cover"
+                  />
+                </div>
+              ) : null}
+              {heroImages[2]?.main_image_url ? (
+                <div className="absolute top-[42%] left-[18%] w-[45%] aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl tilt-right hover-pop">
+                  <Image
+                    src={heroImages[2].main_image_url}
+                    alt={heroImages[2].title || 'Watercolor clipart'}
+                    fill
+                    sizes="(max-width: 1024px) 45vw, 25vw"
+                    className="object-cover"
+                  />
+                </div>
+              ) : null}
+              {heroImages[3]?.main_image_url ? (
+                <div className="absolute bottom-0 right-[8%] w-[42%] aspect-square rounded-3xl overflow-hidden shadow-xl tilt-left hover-pop">
+                  <Image
+                    src={heroImages[3].main_image_url}
+                    alt={heroImages[3].title || 'Watercolor clipart'}
+                    fill
+                    sizes="(max-width: 1024px) 42vw, 24vw"
+                    className="object-cover"
+                  />
+                </div>
+              ) : null}
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose/40 rounded-full blur-3xl -z-10" aria-hidden="true" />
+              <div className="absolute bottom-0 left-0 w-40 h-40 bg-sage/30 rounded-full blur-3xl -z-10" aria-hidden="true" />
+              <div className="absolute top-1/2 -right-8 w-24 h-24 bg-gold/30 rounded-full blur-2xl -z-10" aria-hidden="true" />
             </div>
           </div>
         </div>
@@ -126,21 +150,21 @@ export default async function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            {categories?.map((cat, i) => (
+            {categories.map((cat, i) => (
               <Link
                 key={cat.id}
                 href={'/' + cat.slug}
                 className="group relative aspect-[5/6] overflow-hidden rounded-2xl bg-cream hover-pop"
               >
-                {cat.hero_image_url && (
+                {cat.hero_image_url ? (
                   <Image
                     src={cat.hero_image_url}
-                    alt={cat.name}
+                    alt={cat.name + ' watercolor clipart'}
                     fill
                     sizes="(max-width: 768px) 50vw, 25vw"
                     className="object-cover transition-transform duration-700 group-hover:scale-110"
                   />
-                )}
+                ) : null}
                 <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-4">
                   <p className="text-cream/70 text-xs uppercase tracking-wider mb-1">
@@ -169,7 +193,7 @@ export default async function HomePage() {
             <Link href="/shop" className="button-ghost">See all 1,600+</Link>
           </div>
 
-          {featured && featured.length > 0 ? (
+          {featured.length > 0 ? (
             <MasonryGrid listings={featured} priority={4} />
           ) : (
             <p className="text-center py-24 text-ink/50">
@@ -179,7 +203,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* FRESH FROM THE STUDIO - JUST ADDED */}
+      {/* FRESH FROM THE STUDIO */}
       <NewListings listings={newListings} />
 
       {/* HOW IT WORKS */}
@@ -196,7 +220,7 @@ export default async function HomePage() {
 
           <div className="grid md:grid-cols-3 gap-6 md:gap-10">
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-rose/40 flex items-center justify-center text-4xl">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-rose/40 flex items-center justify-center text-4xl" aria-hidden="true">
                 🎨
               </div>
               <h3 className="font-display text-2xl font-light mb-3">01. Browse</h3>
@@ -206,7 +230,7 @@ export default async function HomePage() {
               </p>
             </div>
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-sky/40 flex items-center justify-center text-4xl">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-sky/40 flex items-center justify-center text-4xl" aria-hidden="true">
                 🛒
               </div>
               <h3 className="font-display text-2xl font-light mb-3">02. Buy on Etsy</h3>
@@ -216,7 +240,7 @@ export default async function HomePage() {
               </p>
             </div>
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-sage/40 flex items-center justify-center text-4xl">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-sage/40 flex items-center justify-center text-4xl" aria-hidden="true">
                 ⬇️
               </div>
               <h3 className="font-display text-2xl font-light mb-3">03. Download</h3>
@@ -251,7 +275,7 @@ export default async function HomePage() {
               { emoji: '📚', label: 'Scrapbooks' },
             ].map((item) => (
               <div key={item.label} className="bg-bone rounded-2xl p-5 flex items-center gap-3">
-                <span className="text-2xl">{item.emoji}</span>
+                <span className="text-2xl" aria-hidden="true">{item.emoji}</span>
                 <span className="text-sm font-medium">{item.label}</span>
               </div>
             ))}
@@ -261,7 +285,7 @@ export default async function HomePage() {
 
       {/* CTA */}
       <section className="py-20 md:py-32 bg-ink text-cream relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0 opacity-10" aria-hidden="true">
           <div className="absolute top-10 left-10 w-32 h-32 bg-clay rounded-full blur-3xl" />
           <div className="absolute bottom-10 right-10 w-48 h-48 bg-rose rounded-full blur-3xl" />
         </div>
