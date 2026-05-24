@@ -24,63 +24,16 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       description: post.seo_description || post.excerpt,
       url,
       siteName: 'Watercolor Clipart',
+      images: post.cover_image_url ? [{ url: post.cover_image_url, width: 1200, height: 630, alt: post.title }] : undefined,
     },
     twitter: {
       card: 'summary_large_image',
       title: post.seo_title || post.title,
       description: post.seo_description || post.excerpt,
+      images: post.cover_image_url ? [post.cover_image_url] : undefined,
     },
     keywords: post.tags,
   };
-}
-
-function renderInline(text: string, keyBase: string) {
-  const parts: (string | JSX.Element)[] = [];
-  const regex = /<a href="([^"]+)">([^<]+)<\/a>/g;
-  let lastIndex = 0;
-  let match;
-  let i = 0;
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-    parts.push(
-      <Link key={keyBase + '-' + i} href={match[1]} className="text-clay underline underline-offset-2 hover:text-ink transition-colors">
-        {match[2]}
-      </Link>
-    );
-    lastIndex = regex.lastIndex;
-    i++;
-  }
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-  return parts;
-}
-
-function renderContent(content: string) {
-  const lines = content.split('\n');
-  const elements: JSX.Element[] = [];
-  let key = 0;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    if (trimmed.startsWith('## ')) {
-      elements.push(
-        <h2 key={key++} className="font-display text-2xl md:text-3xl font-light mt-12 mb-4 text-balance">
-          {trimmed.replace('## ', '')}
-        </h2>
-      );
-    } else {
-      elements.push(
-        <p key={key} className="text-ink/80 leading-relaxed mb-5 text-[17px]">
-          {renderInline(trimmed, 'p' + key)}
-        </p>
-      );
-      key++;
-    }
-  }
-  return elements;
 }
 
 export default async function BlogPost({ params }: { params: { slug: string } }) {
@@ -98,6 +51,7 @@ export default async function BlogPost({ params }: { params: { slug: string } })
     headline: post.title,
     description: post.excerpt,
     datePublished: post.published_at,
+    image: post.cover_image_url || undefined,
     author: { '@type': 'Organization', name: 'Watercolor Clipart' },
     publisher: {
       '@type': 'Organization',
@@ -109,9 +63,10 @@ export default async function BlogPost({ params }: { params: { slug: string } })
 
   const { data: morePosts } = await supabase
     .from('blog_posts')
-    .select('slug, title, excerpt')
+    .select('slug, title, excerpt, cover_image_url')
     .eq('status', 'published')
     .neq('slug', post.slug)
+    .order('published_at', { ascending: false })
     .limit(3);
 
   return (
@@ -134,15 +89,26 @@ export default async function BlogPost({ params }: { params: { slug: string } })
               {post.title}
             </h1>
 
-            {post.excerpt && (
+            {post.excerpt ? (
               <p className="mt-6 text-xl text-ink/70 leading-relaxed text-pretty">
                 {post.excerpt}
               </p>
-            )}
+            ) : null}
 
-            <div className="mt-10 pt-10 border-t border-ink/10">
-              {renderContent(post.content || '')}
-            </div>
+            {post.cover_image_url ? (
+              <div className="mt-8 rounded-2xl overflow-hidden">
+                <img
+                  src={post.cover_image_url}
+                  alt={post.title}
+                  className="w-full h-auto"
+                />
+              </div>
+            ) : null}
+
+            <div
+              className="mt-10 pt-10 border-t border-ink/10 blog-content"
+              dangerouslySetInnerHTML={{ __html: post.content || '' }}
+            />
 
             <div className="mt-12 p-8 bg-bone rounded-2xl text-center">
               <p className="font-display text-2xl font-light mb-3">
@@ -152,22 +118,22 @@ export default async function BlogPost({ params }: { params: { slug: string } })
                 Browse 1,600+ watercolor clipart designs. Instant download via Etsy.
               </p>
               <Link href="/shop" className="button-primary">
-                Explore the collection →
+                Explore the collection
               </Link>
             </div>
 
-            {post.tags && post.tags.length > 0 && (
+            {post.tags && post.tags.length > 0 ? (
               <div className="mt-10 flex flex-wrap gap-2">
                 {post.tags.map((tag: string) => (
                   <span key={tag} className="pill">{tag}</span>
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </article>
 
-      {morePosts && morePosts.length > 0 && (
+      {morePosts && morePosts.length > 0 ? (
         <section className="py-16 border-t border-ink/8 bg-bone">
           <div className="container-x max-w-3xl mx-auto">
             <p className="text-eyebrow mb-6">Keep reading</p>
@@ -187,7 +153,7 @@ export default async function BlogPost({ params }: { params: { slug: string } })
             </div>
           </div>
         </section>
-      )}
+      ) : null}
     </>
   );
 }
