@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 @layer base {
   :root {
     --cream: #FFF8F0;
@@ -13,133 +12,202 @@
     --rose: #F4C2C2;
     --sky: #A8D5E2;
   }
-
   html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
   }
-
   body {
     background: var(--cream);
     color: var(--ink);
     font-feature-settings: 'ss01', 'cv11';
   }
-
   ::selection {
     background: var(--clay);
     color: var(--cream);
   }
-
   img {
     max-width: 100%;
     height: auto;
   }
 }
-
 @layer components {
   .container-x {
     @apply mx-auto w-full max-w-[1600px] px-4 md:px-8 lg:px-12;
   }
-
   .button-primary {
     @apply inline-flex items-center justify-center gap-2 bg-ink text-cream px-7 py-3.5 rounded-full text-sm font-medium tracking-wide transition-all hover:bg-clay focus-visible:outline-2 focus-visible:outline-clay;
   }
-
   .button-pin {
     @apply inline-flex items-center justify-center gap-2 bg-clay text-cream px-5 py-2.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all hover:scale-105 hover:bg-ink;
   }
-
   .button-ghost {
     @apply inline-flex items-center gap-2 text-ink text-sm font-medium border-b border-ink pb-0.5 transition-colors hover:text-clay hover:border-clay;
   }
-
   .text-eyebrow {
     @apply text-[11px] uppercase tracking-[0.2em] font-medium text-ink/60;
   }
-
   .badge {
     @apply inline-flex items-center gap-1 bg-clay text-cream text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full;
   }
-
   .pill {
     @apply inline-flex items-center gap-1.5 bg-bone border border-ink/10 text-ink/80 text-xs px-3 py-1.5 rounded-full hover:border-clay hover:text-clay transition-colors;
   }
 }
-
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
-
   .text-pretty {
     text-wrap: pretty;
   }
-
-  /* Pinterest masonry — CSS columns for natural irregular heights */
   .masonry-grid {
     column-count: 2;
     column-gap: 1rem;
   }
-
   @media (min-width: 640px) {
     .masonry-grid {
       column-count: 3;
       column-gap: 1.25rem;
     }
   }
-
   @media (min-width: 1024px) {
     .masonry-grid {
       column-count: 4;
       column-gap: 1.5rem;
     }
   }
-
   @media (min-width: 1440px) {
     .masonry-grid {
       column-count: 5;
       column-gap: 1.5rem;
     }
   }
-
   .masonry-item {
     break-inside: avoid;
     margin-bottom: 1rem;
     display: inline-block;
     width: 100%;
   }
-
   @media (min-width: 640px) {
     .masonry-item {
       margin-bottom: 1.25rem;
     }
   }
-
   @media (min-width: 1024px) {
     .masonry-item {
       margin-bottom: 1.5rem;
     }
   }
-
-  /* Tilt utilities for playful cards */
   .tilt-left {
     transform: rotate(-1deg);
   }
   .tilt-right {
     transform: rotate(1deg);
   }
-
   .hover-pop {
     transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .hover-pop:hover {
     transform: translateY(-4px) rotate(0deg);
   }
-
-  /* Subtle paper texture */
   .paper-bg {
     background-image: 
       radial-gradient(at 0% 0%, rgba(226, 114, 91, 0.04) 0px, transparent 50%),
       radial-gradient(at 100% 100%, rgba(155, 174, 140, 0.04) 0px, transparent 50%);
   }
+}
+
+/* ============================================
+   Blog Content Styles
+   dangerouslySetInnerHTML ile render edilen
+   blog iceriginin tum stilleri
+   ============================================ */
+.blog-content h2 {
+  font-family: var(--font-fraunces);
+  font-size: 1.75rem;
+  font-weight: 300;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.blog-content h3 {
+  font-family: var(--font-fraunces);
+  font-size: 1.25rem;
+  font-weight: 400;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: var(--ink);
+}
+.blog-content p {
+  color: rgba(31, 26, 23, 0.8);
+  line-height: 1.8;
+  margin-bottom: 1.25rem;
+  font-size: 1.0625rem;
+}
+.blog-content a {
+  color: var(--clay);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s;
+}
+.blog-content a:hover {
+  color: var(--ink);
+}
+.blog-content ul,
+.blog-content ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+.blog-content ul {
+  list-style: disc;
+}
+.blog-content ol {
+  list-style: decimal;
+}
+.blog-content li {
+  color: rgba(31, 26, 23, 0.8);
+  line-height: 1.8;
+  margin-bottom: 0.5rem;
+  font-size: 1.0625rem;
+}
+.blog-content strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.blog-content em {
+  font-style: italic;
+}
+.blog-content figure {
+  margin: 2rem 0;
+}
+.blog-content figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 1rem;
+}
+.blog-content figcaption {
+  font-size: 0.875rem;
+  color: rgba(31, 26, 23, 0.5);
+  text-align: center;
+  margin-top: 0.75rem;
+  font-style: italic;
+}
+.blog-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 1rem;
+  margin: 1.5rem 0;
+}
+.blog-content blockquote {
+  border-left: 3px solid var(--clay);
+  padding-left: 1.25rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: rgba(31, 26, 23, 0.7);
+}
+.blog-content hr {
+  border: none;
+  border-top: 1px solid rgba(31, 26, 23, 0.1);
+  margin: 2.5rem 0;
 }
