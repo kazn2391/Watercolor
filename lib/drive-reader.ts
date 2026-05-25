@@ -11,6 +11,7 @@ export interface DriveFolderContents {
   hasPdf: boolean;
   hasPng: boolean;
   hasJpg: boolean;
+  hasPngSubfolder: boolean;
   imageCount: number;
 }
 
@@ -31,9 +32,9 @@ export async function readDriveFolder(folderUrl: string): Promise<DriveFolderCon
   if (!res.ok) throw new Error('Drive klasorune erisilemedi (herkese acik mi?): ' + res.status);
 
   const html = await res.text();
+
   const files: DriveFile[] = [];
   const seen = new Set<string>();
-
   const idRegex = /\/file\/d\/([a-zA-Z0-9_-]+)/g;
   let m;
   while ((m = idRegex.exec(html)) !== null) {
@@ -48,6 +49,7 @@ export async function readDriveFolder(folderUrl: string): Promise<DriveFolderCon
   while ((m = titleRegex.exec(html)) !== null) {
     names.push(m[1].trim());
   }
+
   for (let i = 0; i < files.length && i < names.length; i++) {
     files[i].name = names[i];
     const lower = names[i].toLowerCase();
@@ -60,11 +62,30 @@ export async function readDriveFolder(folderUrl: string): Promise<DriveFolderCon
   const images = files.filter(
     (f) => f.mimeType === 'image/png' || f.mimeType === 'image/jpeg'
   );
+
   const hasPdf = files.some((f) => f.mimeType === 'application/pdf');
   const hasPng = files.some((f) => f.mimeType === 'image/png');
   const hasJpg = files.some((f) => f.mimeType === 'image/jpeg');
 
-  return { folderId, files, images, hasPdf, hasPng, hasJpg, imageCount: images.length };
+  let hasPngSubfolder = false;
+  const folderLinkRegex = /\/folders\/[a-zA-Z0-9_-]+/g;
+  const hasFolderLinks = folderLinkRegex.test(html);
+  if (hasFolderLinks) {
+    for (const n of names) {
+      if (n.toLowerCase().trim() === 'png') {
+        hasPngSubfolder = true;
+        break;
+      }
+    }
+  }
+  if (!hasPngSubfolder) {
+    const folderTitleCheck = html.toLowerCase();
+    if (folderTitleCheck.includes('>png<') || folderTitleCheck.includes('>png </')) {
+      hasPngSubfolder = true;
+    }
+  }
+
+  return { folderId, files, images, hasPdf, hasPng, hasJpg, hasPngSubfolder, imageCount: images.length };
 }
 
 export async function downloadDriveFile(fileId: string): Promise<Buffer> {
