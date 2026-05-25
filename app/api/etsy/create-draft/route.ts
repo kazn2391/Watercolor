@@ -142,7 +142,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    steps.push(folder.imageCount + ' resim, PNG: ' + folder.hasPng + ', JPG: ' + folder.hasJpg + ', PDF: ' + folder.hasPdf);
+    steps.push(folder.imageCount + ' resim, PNG: ' + folder.hasPng + ', JPG: ' + folder.hasJpg + ', PDF: ' + folder.hasPdf + ', PNG subfolder: ' + folder.hasPngSubfolder);
 
     const top10 = folder.images.slice(0, 10);
 
@@ -176,6 +176,7 @@ export async function POST(req: Request) {
       hasPdf: folder.hasPdf,
       hasPng: folder.hasPng,
       hasJpg: folder.hasJpg,
+      hasPngSubfolder: folder.hasPngSubfolder,
     });
     steps.push('SEO uretildi: ' + seo.title.slice(0, 55));
 
