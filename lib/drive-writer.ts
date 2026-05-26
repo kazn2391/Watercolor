@@ -1,5 +1,4 @@
 import { google } from 'googleapis';
-import { Readable } from 'stream';
 
 function getAuthClient() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -72,14 +71,12 @@ export async function getDriveFolderParent(folderId: string): Promise<string | n
 }
 
 /**
- * Verilen parent klasorun icinde yeni bir alt klasor olusturur.
- * Eger aynı isimde alt klasor varsa onun ID'sini doner (yenisini olusturmaz).
- * Doner: yeni veya mevcut alt klasor ID'si
+ * Service Account ile parent klasor icinde alt klasor olusturur (varsa olanin ID'sini doner).
+ * Quota gerektirmez cunku sadece klasor metadatasi, dosya degil.
  */
-export async function createOrGetSubfolder(parentFolderId: string, subfolderName: string): Promise<string> {
+export async function serviceCreateOrGetSubfolder(parentFolderId: string, subfolderName: string): Promise<string> {
   const drive = getDrive();
 
-  // Once mevcut mu kontrol et
   const safeName = subfolderName.replace(/['"]/g, '');
   const query = "'" + parentFolderId + "' in parents and name='" + safeName + "' and mimeType='application/vnd.google-apps.folder' and trashed=false";
 
@@ -94,7 +91,6 @@ export async function createOrGetSubfolder(parentFolderId: string, subfolderName
     if (existingId) return existingId;
   }
 
-  // Yoksa olustur
   const createRes = await drive.files.create({
     requestBody: {
       name: safeName,
@@ -105,40 +101,22 @@ export async function createOrGetSubfolder(parentFolderId: string, subfolderName
   });
 
   if (!createRes.data.id) {
-    throw new Error('Alt klasor olusturulamadi');
+    throw new Error('Service Account alt klasor olusturulamadi');
   }
   return createRes.data.id;
 }
 
 /**
- * Verilen klasore PNG dosyasi yukler.
+ * Service Account ile bir dosyayi mevcut parent'tan baska bir klasore tasir.
+ * Quota gerektirmez cunku sadece parents field'i guncelleniyor.
+ * Editor yetkisi yeterli.
  */
-export async function uploadFileToDrive(
-  folderId: string,
-  fileName: string,
-  fileBuffer: Buffer,
-  mimeType: string = 'image/png'
-): Promise<string> {
+export async function serviceMoveFile(fileId: string, fromParentId: string, toParentId: string): Promise<void> {
   const drive = getDrive();
-
-  const safeName = fileName.replace(/[\\/:*?"<>]/g, '-').slice(0, 240);
-
-  const stream = Readable.from(fileBuffer);
-
-  const res = await drive.files.create({
-    requestBody: {
-      name: safeName,
-      parents: [folderId],
-    },
-    media: {
-      mimeType,
-      body: stream,
-    },
-    fields: 'id',
+  await drive.files.update({
+    fileId,
+    addParents: toParentId,
+    removeParents: fromParentId,
+    fields: 'id, parents',
   });
-
-  if (!res.data.id) {
-    throw new Error('Dosya yuklenemedi: ' + fileName);
-  }
-  return res.data.id;
 }
