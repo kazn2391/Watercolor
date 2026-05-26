@@ -9,7 +9,7 @@ import {
 import {
   oauthCreateOrGetSubfolder,
   oauthUploadFileToDrive,
-  oauthDeleteFile,
+  oauthMoveFile,
 } from '@/lib/drive-oauth-writer';
 import { generateEtsySeo } from '@/lib/ai-seo';
 import { removeBackground } from '@/lib/photoroom';
@@ -203,7 +203,6 @@ export async function POST(req: Request) {
       steps.push('Klasor adi okunamadi: ' + (e.message || 'bilinmeyen'));
     }
 
-    // PNG uretimi - SEO'dan ONCE, sadece checkbox isaretliyse
     let pngGenerated = false;
     const allImageBuffers: Buffer[] = [...analyzeBuffers];
 
@@ -258,7 +257,8 @@ export async function POST(req: Request) {
     steps.push('SEO uretildi: ' + seo.title.slice(0, 55));
 
     // UPSCALE - SEO'dan SONRA, Etsy yukleme ONCESI
-    // Checkbox isaretliyse: tum resimleri 4032x4032 JPG'ye buyut, SEO-uyumlu isimle Drive'a yukle, eskileri sil
+    // Checkbox isaretliyse: tum resimleri 4032x4032 JPG'ye buyut, SEO-uyumlu isimle Drive'a yukle.
+    // Eski dosyalar 'Low Quality' alt klasorune TASINIR (silinmez)
     let upscaledBuffers: Buffer[] = [];
     let upscaleApplied = false;
 
@@ -268,7 +268,6 @@ export async function POST(req: Request) {
         const parentFolderId = folder.folderId;
         if (!parentFolderId) throw new Error('Folder ID yok');
 
-        // Eger PNG bloku tum resimleri indirmediyse, eksik kalanlari indir
         for (let i = allImageBuffers.length; i < folder.images.length; i++) {
           const b = await downloadDriveFile(folder.images[i].id);
           allImageBuffers.push(b);
@@ -295,22 +294,33 @@ export async function POST(req: Request) {
         }
         steps.push('Upscale sonuc: ' + upscaleSuccessCount + ' basarili, ' + upscaleFailCount + ' hatali');
 
-        // Eski kucuk dosyalari sil (sadece upscale basariliysa)
+        // Eski dosyalari "Low Quality" alt klasorune tasi (sadece upscale basariliysa)
         if (upscaleSuccessCount === allImageBuffers.length) {
-          let deleteSuccessCount = 0;
-          let deleteFailCount = 0;
-          for (const img of folder.images) {
-            try {
-              await oauthDeleteFile(img.id);
-              deleteSuccessCount++;
-            } catch (derr: any) {
-              deleteFailCount++;
+          try {
+            const lowQualityFolderId = await oauthCreateOrGetSubfolder(parentFolderId, 'Low Quality');
+            steps.push('Low Quality alt klasoru hazir');
+
+            let moveSuccessCount = 0;
+            let moveFailCount = 0;
+            for (const img of folder.images) {
+              try {
+                await oauthMoveFile(img.id, parentFolderId, lowQualityFolderId);
+                moveSuccessCount++;
+              } catch (merr: any) {
+                moveFailCount++;
+                if (moveFailCount === 1) {
+                  steps.push('Move hata ornegi: ' + (merr.message || '').slice(0, 100));
+                }
+              }
             }
+            steps.push('Eski dosyalar tasindi: ' + moveSuccessCount + ' basarili, ' + moveFailCount + ' hatali');
+            upscaleApplied = true;
+          } catch (lqErr: any) {
+            steps.push('Low Quality klasor HATASI: ' + (lqErr.message || 'bilinmeyen'));
+            upscaleApplied = true;
           }
-          steps.push('Eski dosyalar silindi: ' + deleteSuccessCount + ' basarili, ' + deleteFailCount + ' hatali');
-          upscaleApplied = true;
         } else {
-          steps.push('UYARI: Upscale tam basarili degil, eski dosyalar silinmedi');
+          steps.push('UYARI: Upscale tam basarili degil, eski dosyalar tasinmadi');
         }
       } catch (upErr: any) {
         steps.push('Upscale HATASI: ' + (upErr.message || 'bilinmeyen'));
@@ -361,7 +371,6 @@ export async function POST(req: Request) {
       steps.push('Holiday (' + seo.holiday + '): ' + (ok ? 'OK' : 'atlandi'));
     }
 
-    // Etsy'ye yukle - upscale yapildiysa buyutulmus buffer'lari kullan
     for (let i = 0; i < top10.length; i++) {
       let buf: Buffer;
       if (upscaleApplied && i < upscaledBuffers.length) {
