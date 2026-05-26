@@ -5,6 +5,7 @@ interface SeoInput {
   hasPng: boolean;
   hasJpg: boolean;
   hasPngSubfolder?: boolean;
+  folderNumber?: string;
 }
 
 export interface SeoOutput {
@@ -20,6 +21,16 @@ export interface SeoOutput {
 }
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+
+function buildWholeShopNote(folderNumber: string): string {
+  return [
+    '',
+    '─────────────────────────',
+    '🛍️ WHOLE SHOP BUNDLE OWNERS',
+    'Already own our Whole Shop Bundle? Just search "' + folderNumber + '" in your Google Drive folder to find this exact set in seconds.',
+    '─────────────────────────',
+  ].join('\n');
+}
 
 export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   let fileFormat = 'digital';
@@ -131,6 +142,11 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   parsed.tags = cleanTags.slice(0, 13);
 
   if (typeof parsed.description !== 'string') parsed.description = '';
+
+  if (input.folderNumber && input.folderNumber.length > 0) {
+    parsed.description = parsed.description.trimEnd() + '\n\n' + buildWholeShopNote(input.folderNumber);
+  }
+
   if (typeof parsed.altBase !== 'string' || parsed.altBase.length === 0) {
     parsed.altBase = 'watercolor clipart design';
   }
