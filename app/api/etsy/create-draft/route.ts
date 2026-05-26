@@ -5,11 +5,12 @@ import { readDriveFolder, downloadDriveFile, extractFolderId } from '@/lib/drive
 import {
   renameDriveFolder,
   getDriveFolderName,
+  serviceCreateOrGetSubfolder,
+  serviceMoveFile,
 } from '@/lib/drive-writer';
 import {
   oauthCreateOrGetSubfolder,
   oauthUploadFileToDrive,
-  oauthMoveFile,
 } from '@/lib/drive-oauth-writer';
 import { generateEtsySeo } from '@/lib/ai-seo';
 import { removeBackground } from '@/lib/photoroom';
@@ -257,8 +258,7 @@ export async function POST(req: Request) {
     steps.push('SEO uretildi: ' + seo.title.slice(0, 55));
 
     // UPSCALE - SEO'dan SONRA, Etsy yukleme ONCESI
-    // Checkbox isaretliyse: tum resimleri 4032x4032 JPG'ye buyut, SEO-uyumlu isimle Drive'a yukle.
-    // Eski dosyalar 'Low Quality' alt klasorune TASINIR (silinmez)
+    // Eski dosyalar Service Account ile 'Low Quality' alt klasorune TASINIR
     let upscaledBuffers: Buffer[] = [];
     let upscaleApplied = false;
 
@@ -294,17 +294,17 @@ export async function POST(req: Request) {
         }
         steps.push('Upscale sonuc: ' + upscaleSuccessCount + ' basarili, ' + upscaleFailCount + ' hatali');
 
-        // Eski dosyalari "Low Quality" alt klasorune tasi (sadece upscale basariliysa)
+        // Eski dosyalari "Low Quality" alt klasorune Service Account ile tasi
         if (upscaleSuccessCount === allImageBuffers.length) {
           try {
-            const lowQualityFolderId = await oauthCreateOrGetSubfolder(parentFolderId, 'Low Quality');
-            steps.push('Low Quality alt klasoru hazir');
+            const lowQualityFolderId = await serviceCreateOrGetSubfolder(parentFolderId, 'Low Quality');
+            steps.push('Low Quality alt klasoru hazir (Service Account)');
 
             let moveSuccessCount = 0;
             let moveFailCount = 0;
             for (const img of folder.images) {
               try {
-                await oauthMoveFile(img.id, parentFolderId, lowQualityFolderId);
+                await serviceMoveFile(img.id, parentFolderId, lowQualityFolderId);
                 moveSuccessCount++;
               } catch (merr: any) {
                 moveFailCount++;
