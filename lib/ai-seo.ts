@@ -34,14 +34,14 @@ function buildWholeShopNote(folderNumber: string): string {
 
 export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   // SADECE hasPngSubfolder PNG vurgusunu tetikler.
-  // Ana dizindeki PNG dosyalari (MJ ciktilari gibi) printable JPG gibi davranir.
+  // Ana dizindeki PNG dosyalari (MJ ciktilari gibi) JPG'ye yukseltilecek varsayilarak printable JPG gibi davranir.
   const pngBoost = input.hasPngSubfolder === true;
 
   let formatRule: string;
   if (pngBoost) {
-    formatRule = 'This bundle includes PNG files with transparent background in a separate Png folder. Strongly emphasize: transparent PNG, no white box, perfect for layering and overlaying on any background. Highlight transparent background as a key selling point in title, tags and description. Put PNG clipart and transparent in the title and tags.';
+    formatRule = 'This bundle includes PNG files with transparent background in a separate Png folder. Strongly emphasize: transparent PNG, no white box, perfect for layering and overlaying on any background. Highlight transparent background as a key selling point in title, tags and description. Put PNG clipart and transparent in the title and tags. Mention that JPG versions are also included for printing.';
   } else {
-    formatRule = 'The files are high-resolution printable digital files. Describe them for printing and crafting use. Do NOT mention PNG or transparent background. Focus on printable use, ready to print.';
+    formatRule = 'The files are high-resolution JPG. Describe them as high-resolution JPG printable files. Do NOT mention PNG or transparent background. Focus on printable use, ready to print, high resolution JPG.';
   }
 
   const colorList = 'Beige, Black, Blue, Bronze, Brown, Clear, Copper, Gold, Gray, Green, Orange, Pink, Purple, Rainbow, Red, Rose gold, Silver, White, Yellow';
@@ -51,13 +51,17 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
 
   const pngTagRule = pngBoost
     ? 'Because this bundle includes transparent PNG files, make sure at least 2 tags mention PNG (like "png clipart", "transparent png"). Include "transparent" in at least one tag.'
-    : 'Do NOT include "png" or "transparent" in any tag, as these designs are printable files.';
+    : 'Do NOT include "png" or "transparent" in any tag, as these designs are JPG files. You may include "jpg" related tags if appropriate.';
+
+  const titleFormatHint = pngBoost
+    ? ''
+    : ' Do NOT include "PNG" or "transparent" in the title. The files are JPG.';
 
   const rules = [
     'You are a world-class Etsy SEO specialist for 2026. Better than any generic AI.',
     'Output ONLY valid JSON, no markdown, no preamble.',
     'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string","primaryColor":"string","secondaryColor":"string","artSubject":"string","occasion":"string","holiday":"string"}.',
-    'TITLE: Start with the file count number then the specific subject (example: 20 Cat Clipart). Under 15 words. First 50 characters carry the count plus actual subject. Use the pipe character to separate clusters. Reads naturally for Google. No generic opener like Watercolor Clipart Bundle.' + (pngBoost ? '' : ' Do NOT include "PNG" or "transparent" in the title.'),
+    'TITLE: Start with the file count number then the specific subject (example: 20 Cat Clipart). Under 15 words. First 50 characters carry the count plus actual subject. Use the pipe character to separate clusters. Reads naturally for Google. No generic opener like Watercolor Clipart Bundle.' + titleFormatHint,
     'TAGS: exactly 13 array items. Each tag 20 characters or fewer. MIX: about half SHORT 1-2 word tags (cat clipart, watercolor) and half LONG-TAIL (grumpy cat clipart). Always include the word watercolor in at least one tag. No tag repeats a phrase from the title. None empty. ' + pngTagRule,
     'DESCRIPTION: First sentence clearly states what the item is and the file count. ' + formatRule + ' Then paragraphs separated by blank lines. Include a line starting WHAT YOU GET: and a line starting COMMERCIAL USE:. Tell the buyer to purchase, download the file, and start creating (do NOT say ZIP, say download the file). Do NOT mention US buyers or country. Do NOT put AI wording at the top. Only at the very END add a short discreet line: Files made with AI.',
     'altBase: a short 6 to 10 word phrase describing the designs including subject, colors and style.',
@@ -68,10 +72,10 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     'holiday: choose ONE from: ' + holidayList + '. Use none unless the designs are clearly that holiday theme.',
   ].join(' ');
 
-  const pngNote = pngBoost ? ' This bundle also includes PNG versions with transparent background in a separate folder.' : '';
+  const formatLabel = pngBoost ? 'JPG (with transparent PNG versions also included in separate folder)' : 'JPG';
 
   const userMsg =
-    'This bundle has exactly ' + input.fileCount + ' design files.' + pngNote + ' ' +
+    'This bundle has exactly ' + input.fileCount + ' design files in ' + formatLabel + ' format. ' +
     'The designs show: ' + input.imageDescriptions.join(' | ') + '. ' +
     'Base everything on the actual subject and colors of these designs. Return JSON now.';
 
@@ -121,7 +125,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   }
   const fillers = pngBoost
     ? ['png clipart', 'transparent png', 'watercolor', 'digital download', 'instant download', 'craft supply']
-    : ['watercolor', 'clipart', 'digital download', 'printable art', 'instant download', 'craft supply'];
+    : ['watercolor', 'jpg clipart', 'digital download', 'printable art', 'instant download', 'craft supply'];
   let fi = 0;
   while (cleanTags.length < 13 && fi < fillers.length) {
     if (cleanTags.indexOf(fillers[fi]) === -1) cleanTags.push(fillers[fi]);
