@@ -1,14 +1,12 @@
 'use client';
-
 import { useState } from 'react';
-
 export default function EtsyAdminPanel() {
   const [key, setKey] = useState('');
   const [driveUrl, setDriveUrl] = useState('');
+  const [generatePng, setGeneratePng] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
-
   async function handleSubmit() {
     setLoading(true);
     setError('');
@@ -17,7 +15,7 @@ export default function EtsyAdminPanel() {
       const res = await fetch('/api/etsy/create-draft?key=' + encodeURIComponent(key), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driveUrl }),
+        body: JSON.stringify({ driveUrl, generatePng }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -32,11 +30,9 @@ export default function EtsyAdminPanel() {
     }
     setLoading(false);
   }
-
   return (
     <div style={{ maxWidth: 600, margin: '60px auto', padding: 24, fontFamily: 'sans-serif' }}>
       <h1 style={{ fontSize: 24, marginBottom: 24 }}>Etsy Draft Olusturucu</h1>
-
       <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: '#666' }}>
         Erisim Anahtari
       </label>
@@ -47,7 +43,6 @@ export default function EtsyAdminPanel() {
         placeholder="Gizli anahtar"
         style={{ width: '100%', padding: 10, marginBottom: 16, border: '1px solid #ddd', borderRadius: 8 }}
       />
-
       <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: '#666' }}>
         Google Drive Klasor Linki
       </label>
@@ -58,7 +53,24 @@ export default function EtsyAdminPanel() {
         placeholder="https://drive.google.com/drive/folders/..."
         style={{ width: '100%', padding: 10, marginBottom: 16, border: '1px solid #ddd', borderRadius: 8 }}
       />
-
+      <label style={{
+        display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+        padding: 12, background: '#f9f5ef', borderRadius: 8, cursor: 'pointer',
+        border: generatePng ? '2px solid #b5835a' : '2px solid transparent',
+      }}>
+        <input
+          type="checkbox"
+          checked={generatePng}
+          onChange={(e) => setGeneratePng(e.target.checked)}
+          style={{ width: 18, height: 18, cursor: 'pointer' }}
+        />
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 'bold' }}>PNG uret (transparent background)</div>
+          <div style={{ fontSize: 12, color: '#888' }}>
+            Drive klasorune Png alt klasoru acar, JPG&apos;leri Photoroom ile transparan PNG&apos;ye cevirip yukler. Sandbox key icin filigranli cikar.
+          </div>
+        </div>
+      </label>
       <button
         onClick={handleSubmit}
         disabled={loading || !key || !driveUrl}
@@ -70,13 +82,11 @@ export default function EtsyAdminPanel() {
       >
         {loading ? 'Olusturuluyor (1-3 dk)' : 'Etsy Draft Olustur'}
       </button>
-
       {error && (
         <div style={{ marginTop: 20, padding: 16, background: '#fee', borderRadius: 8, color: '#c00' }}>
           <strong>Hata:</strong> {error}
         </div>
       )}
-
       {result && result.steps && (
         <div style={{ marginTop: 20, padding: 16, background: '#f5f5f5', borderRadius: 8, fontSize: 13 }}>
           {result.steps.map((s: string, i: number) => (
@@ -84,7 +94,6 @@ export default function EtsyAdminPanel() {
           ))}
         </div>
       )}
-
       {result && result.success && (
         <div style={{ marginTop: 20, padding: 16, background: '#efe', borderRadius: 8 }}>
           <p style={{ fontWeight: 'bold', color: '#080' }}>Draft hazir!</p>
