@@ -2,8 +2,14 @@ import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { supabaseAdmin } from '@/lib/supabase';
 import { readDriveFolder, downloadDriveFile, extractFolderId } from '@/lib/drive-reader';
-import { renameDriveFolder, getDriveFolderName } from '@/lib/drive-writer';
+import {
+  renameDriveFolder,
+  getDriveFolderName,
+  createOrGetSubfolder,
+  uploadFileToDrive,
+} from '@/lib/drive-writer';
 import { generateEtsySeo } from '@/lib/ai-seo';
+import { removeBackground } from '@/lib/photoroom';
 import { rewritePdfDownloadLink } from '@/lib/pdf-rewrite';
 import {
   createDraftListing,
@@ -123,9 +129,11 @@ export async function POST(req: Request) {
   }
 
   let driveUrl = '';
+  let generatePng = false;
   try {
     const bodyJson = await req.json();
     driveUrl = bodyJson.driveUrl || '';
+    generatePng = bodyJson.generatePng === true;
   } catch (e) {
     return NextResponse.json({ error: 'driveUrl gerekli' }, { status: 400 });
   }
@@ -189,13 +197,60 @@ export async function POST(req: Request) {
       steps.push('Klasor adi okunamadi: ' + (e.message || 'bilinmeyen'));
     }
 
+    // PNG uretimi - SEO'dan ONCE, sadece checkbox isaretliyse
+    let pngGenerated = false;
+    const allImageBuffers: Buffer[] = [...analyzeBuffers];
+
+    if (generatePng) {
+      steps.push('PNG uretimi baslatildi (Photoroom)');
+      try {
+        const parentFolderId = folder.folderId;
+        if (!parentFolderId) throw new Error('Folder ID yok');
+
+        // Once tum JPG'leri indir (analyzeBuffers'da olmayanlari)
+        for (let i = analyzeBuffers.length; i < folder.images.length; i++) {
+          const b = await downloadDriveFile(folder.images[i].id);
+          allImageBuffers.push(b);
+        }
+        steps.push('Toplam ' + allImageBuffers.length + ' resim indirildi');
+
+        // Png alt klasoru olustur
+        const pngFolderId = await createOrGetSubfolder(parentFolderId, 'Png');
+        steps.push('Png alt klasoru hazir');
+
+        // Her gorseli Photoroom'a yolla, donen PNG'yi Drive'a yukle
+        let pngSuccessCount = 0;
+        let pngFailCount = 0;
+        for (let i = 0; i < allImageBuffers.length; i++) {
+          try {
+            const pngBuf = await removeBackground(allImageBuffers[i]);
+            const originalName = folder.images[i] ? folder.images[i].name : 'image' + (i + 1);
+            const baseName = originalName.replace(/\.(jpg|jpeg|png)$/i, '');
+            const pngName = baseName + '.png';
+            await uploadFileToDrive(pngFolderId, pngName, pngBuf, 'image/png');
+            pngSuccessCount++;
+          } catch (perr: any) {
+            pngFailCount++;
+            steps.push('PNG hatasi (resim ' + (i + 1) + '): ' + (perr.message || '').slice(0, 100));
+          }
+        }
+        steps.push('PNG sonuc: ' + pngSuccessCount + ' basarili, ' + pngFailCount + ' hatali');
+        if (pngSuccessCount > 0) pngGenerated = true;
+      } catch (pngErr: any) {
+        steps.push('PNG uretim HATASI: ' + (pngErr.message || 'bilinmeyen'));
+      }
+    }
+
+    // SEO'da hasPngSubfolder degeri: ya orijinal Drive'da Png alt klasoru vardi, ya da biz olusturduk
+    const finalHasPngSubfolder = folder.hasPngSubfolder || pngGenerated;
+
     const seo = await generateEtsySeo({
       imageDescriptions: descs,
       fileCount: folder.imageCount,
       hasPdf: folder.hasPdf,
       hasPng: folder.hasPng,
       hasJpg: folder.hasJpg,
-      hasPngSubfolder: folder.hasPngSubfolder,
+      hasPngSubfolder: finalHasPngSubfolder,
       folderNumber,
     });
     steps.push('SEO uretildi: ' + seo.title.slice(0, 55));
@@ -246,8 +301,8 @@ export async function POST(req: Request) {
 
     for (let i = 0; i < top10.length; i++) {
       let buf: Buffer;
-      if (i < analyzeBuffers.length) {
-        buf = analyzeBuffers[i];
+      if (i < allImageBuffers.length) {
+        buf = allImageBuffers[i];
       } else {
         buf = await downloadDriveFile(top10[i].id);
       }
