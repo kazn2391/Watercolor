@@ -5,9 +5,11 @@ import { readDriveFolder, downloadDriveFile, extractFolderId } from '@/lib/drive
 import {
   renameDriveFolder,
   getDriveFolderName,
-  createOrGetSubfolder,
-  uploadFileToDrive,
 } from '@/lib/drive-writer';
+import {
+  oauthCreateOrGetSubfolder,
+  oauthUploadFileToDrive,
+} from '@/lib/drive-oauth-writer';
 import { generateEtsySeo } from '@/lib/ai-seo';
 import { removeBackground } from '@/lib/photoroom';
 import { rewritePdfDownloadLink } from '@/lib/pdf-rewrite';
@@ -198,11 +200,12 @@ export async function POST(req: Request) {
     }
 
     // PNG uretimi - SEO'dan ONCE, sadece checkbox isaretliyse
+    // OAuth ile yazilir (Service Account'in quota sorunu yok bu yontemde)
     let pngGenerated = false;
     const allImageBuffers: Buffer[] = [...analyzeBuffers];
 
     if (generatePng) {
-      steps.push('PNG uretimi baslatildi (Photoroom)');
+      steps.push('PNG uretimi baslatildi (Photoroom + OAuth)');
       try {
         const parentFolderId = folder.folderId;
         if (!parentFolderId) throw new Error('Folder ID yok');
@@ -214,11 +217,11 @@ export async function POST(req: Request) {
         }
         steps.push('Toplam ' + allImageBuffers.length + ' resim indirildi');
 
-        // Png alt klasoru olustur
-        const pngFolderId = await createOrGetSubfolder(parentFolderId, 'Png');
-        steps.push('Png alt klasoru hazir');
+        // Png alt klasoru olustur (OAuth ile)
+        const pngFolderId = await oauthCreateOrGetSubfolder(parentFolderId, 'Png');
+        steps.push('Png alt klasoru hazir (OAuth)');
 
-        // Her gorseli Photoroom'a yolla, donen PNG'yi Drive'a yukle
+        // Her gorseli Photoroom'a yolla, donen PNG'yi Drive'a yukle (OAuth ile)
         let pngSuccessCount = 0;
         let pngFailCount = 0;
         for (let i = 0; i < allImageBuffers.length; i++) {
@@ -227,7 +230,7 @@ export async function POST(req: Request) {
             const originalName = folder.images[i] ? folder.images[i].name : 'image' + (i + 1);
             const baseName = originalName.replace(/\.(jpg|jpeg|png)$/i, '');
             const pngName = baseName + '.png';
-            await uploadFileToDrive(pngFolderId, pngName, pngBuf, 'image/png');
+            await oauthUploadFileToDrive(pngFolderId, pngName, pngBuf, 'image/png');
             pngSuccessCount++;
           } catch (perr: any) {
             pngFailCount++;
