@@ -22,9 +22,6 @@ function getDrive() {
   return google.drive({ version: 'v3', auth });
 }
 
-/**
- * OAuth ile parent klasor icinde alt klasor olusturur (varsa olanin ID'sini doner).
- */
 export async function oauthCreateOrGetSubfolder(parentFolderId: string, subfolderName: string): Promise<string> {
   const drive = getDrive();
 
@@ -57,9 +54,6 @@ export async function oauthCreateOrGetSubfolder(parentFolderId: string, subfolde
   return createRes.data.id;
 }
 
-/**
- * OAuth ile dosya yukler.
- */
 export async function oauthUploadFileToDrive(
   folderId: string,
   fileName: string,
@@ -90,9 +84,6 @@ export async function oauthUploadFileToDrive(
   return res.data.id;
 }
 
-/**
- * OAuth ile dosya siler (Drive trash'e gonderir).
- */
 export async function oauthDeleteFile(fileId: string): Promise<void> {
   const drive = getDrive();
   await drive.files.update({
@@ -100,5 +91,20 @@ export async function oauthDeleteFile(fileId: string): Promise<void> {
     requestBody: {
       trashed: true,
     },
+  });
+}
+
+/**
+ * Bir dosyayi mevcut parent'tan baska bir klasore tasir.
+ * fromParentId: mevcut parent klasor ID
+ * toParentId: yeni parent klasor ID
+ */
+export async function oauthMoveFile(fileId: string, fromParentId: string, toParentId: string): Promise<void> {
+  const drive = getDrive();
+  await drive.files.update({
+    fileId,
+    addParents: toParentId,
+    removeParents: fromParentId,
+    fields: 'id, parents',
   });
 }
