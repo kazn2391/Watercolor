@@ -4,6 +4,7 @@ export default function EtsyAdminPanel() {
   const [key, setKey] = useState('');
   const [driveUrl, setDriveUrl] = useState('');
   const [generatePng, setGeneratePng] = useState(false);
+  const [upscaleImages, setUpscaleImages] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
@@ -15,7 +16,7 @@ export default function EtsyAdminPanel() {
       const res = await fetch('/api/etsy/create-draft?key=' + encodeURIComponent(key), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driveUrl, generatePng }),
+        body: JSON.stringify({ driveUrl, generatePng, upscaleImages }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -54,6 +55,24 @@ export default function EtsyAdminPanel() {
         style={{ width: '100%', padding: 10, marginBottom: 16, border: '1px solid #ddd', borderRadius: 8 }}
       />
       <label style={{
+        display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
+        padding: 12, background: '#f9f5ef', borderRadius: 8, cursor: 'pointer',
+        border: upscaleImages ? '2px solid #b5835a' : '2px solid transparent',
+      }}>
+        <input
+          type="checkbox"
+          checked={upscaleImages}
+          onChange={(e) => setUpscaleImages(e.target.checked)}
+          style={{ width: 18, height: 18, cursor: 'pointer' }}
+        />
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 'bold' }}>Resimleri Buyut (4032x4032 JPG)</div>
+          <div style={{ fontSize: 12, color: '#888' }}>
+            MJ kucuk dosyalarini 4032x4032 maksimum kalite JPG&apos;ye yukseltir. Eski dosyalar silinir. Yeni isimler SEO uyumlu (orn: whimsicalcat1.jpg).
+          </div>
+        </div>
+      </label>
+      <label style={{
         display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
         padding: 12, background: '#f9f5ef', borderRadius: 8, cursor: 'pointer',
         border: generatePng ? '2px solid #b5835a' : '2px solid transparent',
@@ -67,7 +86,7 @@ export default function EtsyAdminPanel() {
         <div>
           <div style={{ fontSize: 14, fontWeight: 'bold' }}>PNG uret (transparent background)</div>
           <div style={{ fontSize: 12, color: '#888' }}>
-            Drive klasorune Png alt klasoru acar, JPG&apos;leri Photoroom ile transparan PNG&apos;ye cevirip yukler. Sandbox key icin filigranli cikar.
+            Drive klasorune Png alt klasoru acar, JPG&apos;leri Photoroom ile transparan PNG&apos;ye cevirip yukler.
           </div>
         </div>
       </label>
