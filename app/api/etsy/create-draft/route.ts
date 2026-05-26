@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { supabaseAdmin } from '@/lib/supabase';
-import { readDriveFolder, downloadDriveFile } from '@/lib/drive-reader';
+import { readDriveFolder, downloadDriveFile, extractFolderId } from '@/lib/drive-reader';
+import { renameDriveFolder } from '@/lib/drive-writer';
 import { generateEtsySeo } from '@/lib/ai-seo';
 import { rewritePdfDownloadLink } from '@/lib/pdf-rewrite';
 import {
@@ -256,6 +257,27 @@ export async function POST(req: Request) {
       steps.push('UYARI: PDF sablonu yok');
     }
 
+    try {
+      const folderId = extractFolderId(driveUrl);
+      if (folderId) {
+        const currentName = folder.folderId;
+        const numberMatch = (driveUrl.match(/folders\/[a-zA-Z0-9_-]+/) || [''])[0];
+        let prefix = '';
+        const nameFromHtml = await getDriveFolderCurrentName(folderId);
+        const numPrefix = nameFromHtml.match(/^(\d+)/);
+        if (numPrefix) {
+          prefix = numPrefix[1];
+        }
+        const newFolderName = prefix
+          ? prefix + ' - ' + seo.title
+          : seo.title;
+        await renameDriveFolder(folderId, newFolderName);
+        steps.push('Drive klasor adi guncellendi: ' + newFolderName.slice(0, 60));
+      }
+    } catch (renameErr: any) {
+      steps.push('Drive rename HATASI: ' + renameErr.message);
+    }
+
     return NextResponse.json({
       success: true,
       listingId,
@@ -265,5 +287,14 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message, steps }, { status: 500 });
+  }
+}
+
+async function getDriveFolderCurrentName(folderId: string): Promise<string> {
+  try {
+    const { getDriveFolderName } = await import('@/lib/drive-writer');
+    return await getDriveFolderName(folderId);
+  } catch (e) {
+    return '';
   }
 }
