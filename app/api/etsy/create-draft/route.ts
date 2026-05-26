@@ -9,9 +9,11 @@ import {
 import {
   oauthCreateOrGetSubfolder,
   oauthUploadFileToDrive,
+  oauthDeleteFile,
 } from '@/lib/drive-oauth-writer';
 import { generateEtsySeo } from '@/lib/ai-seo';
 import { removeBackground } from '@/lib/photoroom';
+import { upscaleToJpeg, buildBaseNameFromTitle } from '@/lib/image-upscaler';
 import { rewritePdfDownloadLink } from '@/lib/pdf-rewrite';
 import {
   createDraftListing,
@@ -132,10 +134,12 @@ export async function POST(req: Request) {
 
   let driveUrl = '';
   let generatePng = false;
+  let upscaleImages = false;
   try {
     const bodyJson = await req.json();
     driveUrl = bodyJson.driveUrl || '';
     generatePng = bodyJson.generatePng === true;
+    upscaleImages = bodyJson.upscaleImages === true;
   } catch (e) {
     return NextResponse.json({ error: 'driveUrl gerekli' }, { status: 400 });
   }
@@ -200,7 +204,6 @@ export async function POST(req: Request) {
     }
 
     // PNG uretimi - SEO'dan ONCE, sadece checkbox isaretliyse
-    // OAuth ile yazilir (Service Account'in quota sorunu yok bu yontemde)
     let pngGenerated = false;
     const allImageBuffers: Buffer[] = [...analyzeBuffers];
 
@@ -210,18 +213,15 @@ export async function POST(req: Request) {
         const parentFolderId = folder.folderId;
         if (!parentFolderId) throw new Error('Folder ID yok');
 
-        // Once tum JPG'leri indir (analyzeBuffers'da olmayanlari)
         for (let i = analyzeBuffers.length; i < folder.images.length; i++) {
           const b = await downloadDriveFile(folder.images[i].id);
           allImageBuffers.push(b);
         }
         steps.push('Toplam ' + allImageBuffers.length + ' resim indirildi');
 
-        // Png alt klasoru olustur (OAuth ile)
         const pngFolderId = await oauthCreateOrGetSubfolder(parentFolderId, 'Png');
         steps.push('Png alt klasoru hazir (OAuth)');
 
-        // Her gorseli Photoroom'a yolla, donen PNG'yi Drive'a yukle (OAuth ile)
         let pngSuccessCount = 0;
         let pngFailCount = 0;
         for (let i = 0; i < allImageBuffers.length; i++) {
@@ -244,7 +244,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // SEO'da hasPngSubfolder degeri: ya orijinal Drive'da Png alt klasoru vardi, ya da biz olusturduk
     const finalHasPngSubfolder = folder.hasPngSubfolder || pngGenerated;
 
     const seo = await generateEtsySeo({
@@ -257,6 +256,66 @@ export async function POST(req: Request) {
       folderNumber,
     });
     steps.push('SEO uretildi: ' + seo.title.slice(0, 55));
+
+    // UPSCALE - SEO'dan SONRA, Etsy yukleme ONCESI
+    // Checkbox isaretliyse: tum resimleri 4032x4032 JPG'ye buyut, SEO-uyumlu isimle Drive'a yukle, eskileri sil
+    let upscaledBuffers: Buffer[] = [];
+    let upscaleApplied = false;
+
+    if (upscaleImages) {
+      steps.push('Upscale baslatildi (4032x4032 JPG max kalite)');
+      try {
+        const parentFolderId = folder.folderId;
+        if (!parentFolderId) throw new Error('Folder ID yok');
+
+        // Eger PNG bloku tum resimleri indirmediyse, eksik kalanlari indir
+        for (let i = allImageBuffers.length; i < folder.images.length; i++) {
+          const b = await downloadDriveFile(folder.images[i].id);
+          allImageBuffers.push(b);
+        }
+        steps.push('Upscale icin ' + allImageBuffers.length + ' resim hazir');
+
+        const baseName = buildBaseNameFromTitle(seo.title);
+        steps.push('Yeni isim base: ' + baseName);
+
+        let upscaleSuccessCount = 0;
+        let upscaleFailCount = 0;
+
+        for (let i = 0; i < allImageBuffers.length; i++) {
+          try {
+            const bigBuf = await upscaleToJpeg(allImageBuffers[i]);
+            upscaledBuffers.push(bigBuf);
+            const newName = baseName + (i + 1) + '.jpg';
+            await oauthUploadFileToDrive(parentFolderId, newName, bigBuf, 'image/jpeg');
+            upscaleSuccessCount++;
+          } catch (uerr: any) {
+            upscaleFailCount++;
+            steps.push('Upscale hatasi (resim ' + (i + 1) + '): ' + (uerr.message || '').slice(0, 100));
+          }
+        }
+        steps.push('Upscale sonuc: ' + upscaleSuccessCount + ' basarili, ' + upscaleFailCount + ' hatali');
+
+        // Eski kucuk dosyalari sil (sadece upscale basariliysa)
+        if (upscaleSuccessCount === allImageBuffers.length) {
+          let deleteSuccessCount = 0;
+          let deleteFailCount = 0;
+          for (const img of folder.images) {
+            try {
+              await oauthDeleteFile(img.id);
+              deleteSuccessCount++;
+            } catch (derr: any) {
+              deleteFailCount++;
+            }
+          }
+          steps.push('Eski dosyalar silindi: ' + deleteSuccessCount + ' basarili, ' + deleteFailCount + ' hatali');
+          upscaleApplied = true;
+        } else {
+          steps.push('UYARI: Upscale tam basarili degil, eski dosyalar silinmedi');
+        }
+      } catch (upErr: any) {
+        steps.push('Upscale HATASI: ' + (upErr.message || 'bilinmeyen'));
+      }
+    }
 
     const taxonomyId = await findClipArtTaxonomyId();
     steps.push('Taxonomy: ' + taxonomyId);
@@ -302,9 +361,12 @@ export async function POST(req: Request) {
       steps.push('Holiday (' + seo.holiday + '): ' + (ok ? 'OK' : 'atlandi'));
     }
 
+    // Etsy'ye yukle - upscale yapildiysa buyutulmus buffer'lari kullan
     for (let i = 0; i < top10.length; i++) {
       let buf: Buffer;
-      if (i < allImageBuffers.length) {
+      if (upscaleApplied && i < upscaledBuffers.length) {
+        buf = upscaledBuffers[i];
+      } else if (i < allImageBuffers.length) {
         buf = allImageBuffers[i];
       } else {
         buf = await downloadDriveFile(top10[i].id);
@@ -312,7 +374,7 @@ export async function POST(req: Request) {
       const alt = buildAltText(seo.altBase, i + 1, top10.length);
       await uploadListingImage(listingId, buf, i + 1, alt);
     }
-    steps.push(top10.length + ' resim + alt text yuklendi');
+    steps.push(top10.length + ' resim + alt text yuklendi' + (upscaleApplied ? ' (4032x4032)' : ''));
 
     const db = supabaseAdmin();
     const { data: tplRow } = await db
