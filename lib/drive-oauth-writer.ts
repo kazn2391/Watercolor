@@ -24,7 +24,6 @@ function getDrive() {
 
 /**
  * OAuth ile parent klasor icinde alt klasor olusturur (varsa olanin ID'sini doner).
- * SADECE PNG ICIN KULLANILIR. Mevcut Service Account akisi etkilenmez.
  */
 export async function oauthCreateOrGetSubfolder(parentFolderId: string, subfolderName: string): Promise<string> {
   const drive = getDrive();
@@ -59,7 +58,7 @@ export async function oauthCreateOrGetSubfolder(parentFolderId: string, subfolde
 }
 
 /**
- * OAuth ile dosya yukler (Photoroom PNG'leri icin).
+ * OAuth ile dosya yukler.
  */
 export async function oauthUploadFileToDrive(
   folderId: string,
@@ -89,4 +88,17 @@ export async function oauthUploadFileToDrive(
     throw new Error('OAuth dosya yuklenemedi: ' + fileName);
   }
   return res.data.id;
+}
+
+/**
+ * OAuth ile dosya siler (Drive trash'e gonderir).
+ */
+export async function oauthDeleteFile(fileId: string): Promise<void> {
+  const drive = getDrive();
+  await drive.files.update({
+    fileId,
+    requestBody: {
+      trashed: true,
+    },
+  });
 }
