@@ -70,7 +70,6 @@ const HOLIDAY_MAP: Record<string, number> = {
   'new years': 44, 'st patricks day': 45,
 };
 
-// Paralel batch islem icin yardimci - concurrency limit ile array islem
 async function processBatch<T, R>(
   items: T[],
   concurrency: number,
@@ -100,6 +99,11 @@ async function processBatch<T, R>(
   await Promise.all(workers);
 
   return { results, errors };
+}
+
+// Sleep helper - rate limit icin kucuk gecikme
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function describeImageBuffer(buf: Buffer): Promise<string> {
@@ -158,6 +162,30 @@ function buildAltText(altBase: string, rank: number, total: number): string {
   return v.slice(0, 250);
 }
 
+// Etsy upload icin retry helper - 3 deneme, expo backoff
+async function uploadListingImageWithRetry(
+  listingId: number | string,
+  buf: Buffer,
+  rank: number,
+  alt: string,
+  maxAttempts: number = 3
+): Promise<{ success: boolean; error: string }> {
+  let lastError = '';
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await uploadListingImage(listingId as number, buf, rank, alt);
+      return { success: true, error: '' };
+    } catch (e: any) {
+      lastError = (e.message || 'bilinmeyen').slice(0, 150);
+      // Retry'lar arasi bekleme: 1s, 2s, 4s
+      if (attempt < maxAttempts) {
+        await sleep(1000 * Math.pow(2, attempt - 1));
+      }
+    }
+  }
+  return { success: false, error: lastError };
+}
+
 export async function POST(req: Request) {
   const url = new URL(req.url);
   const adminKey = url.searchParams.get('key');
@@ -195,10 +223,8 @@ export async function POST(req: Request) {
     }
     steps.push('[' + elapsed() + '] ' + folder.imageCount + ' resim, PNG: ' + folder.hasPng + ', JPG: ' + folder.hasJpg + ', PDF: ' + folder.hasPdf + ', PNG subfolder: ' + folder.hasPngSubfolder);
 
-    // top10 = Etsy'ye yuklenecek ilk 10 resim (Etsy max)
     const top10 = folder.images.slice(0, 10);
 
-    // PARALEL: Ilk 2 resmi analiz icin paralel indir
     const analyzeBatch = await processBatch(
       top10.slice(0, 2),
       2,
@@ -207,7 +233,6 @@ export async function POST(req: Request) {
     const analyzeBuffers: Buffer[] = analyzeBatch.results.filter((b): b is Buffer => b !== null);
     steps.push('[' + elapsed() + '] Analiz icin ' + analyzeBuffers.length + ' resim indirildi');
 
-    // PARALEL: 2 resmi paralel analiz et
     const descBatch = await processBatch(
       analyzeBuffers,
       2,
@@ -239,31 +264,15 @@ export async function POST(req: Request) {
       steps.push('Klasor adi okunamadi: ' + (e.message || 'bilinmeyen'));
     }
 
-    // ====================================================================
-    // KRITIK MANTIK: hangi resimleri indirmeliyiz?
-    //
-    // Senaryolar:
-    // A) PNG kapali + Upscale kapali  -> SADECE top10 indir (Etsy icin)
-    // B) PNG acik + Upscale kapali    -> TUM folder.images indir (PNG icin)
-    // C) PNG kapali + Upscale acik    -> TUM folder.images indir (Upscale icin)
-    // D) PNG acik + Upscale acik      -> TUM folder.images indir
-    //
-    // Yani: PNG veya Upscale acikse TUM resimleri indir, degilse SADECE top10.
-    // ====================================================================
-
     const needsAllImages = generatePng || upscaleImages;
     const imagesToDownload = needsAllImages ? folder.images : top10;
 
-    // allImageBuffers: PNG/Upscale icin TUM resimler, degilse top10
-    // top10Buffers: Etsy'ye yuklemek icin ilk 10 (Etsy max)
     const allImageBuffers: Buffer[] = new Array(imagesToDownload.length).fill(null);
 
-    // analyzeBuffers'i ilk 2 slot'a yerlestir (zaten indirildi)
     for (let i = 0; i < analyzeBuffers.length && i < allImageBuffers.length; i++) {
       allImageBuffers[i] = analyzeBuffers[i];
     }
 
-    // Kalanlari paralel indir (index 2'den itibaren imagesToDownload sonuna kadar)
     const remainingIndices: number[] = [];
     for (let i = analyzeBuffers.length; i < imagesToDownload.length; i++) {
       remainingIndices.push(i);
@@ -287,7 +296,6 @@ export async function POST(req: Request) {
     const downloadedCount = allImageBuffers.filter((b) => b !== null).length;
     steps.push('[' + elapsed() + '] Toplam ' + downloadedCount + ' resim hazir');
 
-    // PARALEL: PNG uretimi
     let pngGenerated = false;
     if (generatePng) {
       steps.push('[' + elapsed() + '] PNG uretimi baslatildi (paralel)');
@@ -298,7 +306,6 @@ export async function POST(req: Request) {
         const pngFolderId = await oauthCreateOrGetSubfolder(parentFolderId, 'Png');
         steps.push('[' + elapsed() + '] Png alt klasoru hazir');
 
-        // PARALEL: 5 concurrent Photoroom call + upload
         const validBuffers: { buf: Buffer; idx: number }[] = [];
         for (let i = 0; i < allImageBuffers.length; i++) {
           if (allImageBuffers[i]) validBuffers.push({ buf: allImageBuffers[i], idx: i });
@@ -337,7 +344,6 @@ export async function POST(req: Request) {
     });
     steps.push('[' + elapsed() + '] SEO uretildi: ' + seo.title.slice(0, 55));
 
-    // PARALEL: UPSCALE
     const upscaledBuffers: Buffer[] = new Array(allImageBuffers.length).fill(null);
     let upscaleApplied = false;
 
@@ -350,7 +356,6 @@ export async function POST(req: Request) {
         const baseName = buildBaseNameFromTitle(seo.title);
         steps.push('[' + elapsed() + '] Yeni isim base: ' + baseName);
 
-        // PARALEL: 5 concurrent upscale + upload
         const validBuffers: { buf: Buffer; idx: number }[] = [];
         for (let i = 0; i < allImageBuffers.length; i++) {
           if (allImageBuffers[i]) validBuffers.push({ buf: allImageBuffers[i], idx: i });
@@ -370,7 +375,6 @@ export async function POST(req: Request) {
         const upscaleSuccessCount = upscaleBatch.results.filter((r) => r === true).length;
         steps.push('[' + elapsed() + '] Upscale sonuc: ' + upscaleSuccessCount + ' basarili, ' + upscaleBatch.errors + ' hatali');
 
-        // PARALEL: Eski dosyalari "Low Quality" alt klasorune tasi
         if (upscaleSuccessCount === validBuffers.length) {
           try {
             const lowQualityFolderId = await serviceCreateOrGetSubfolder(parentFolderId, 'Low Quality');
@@ -410,7 +414,6 @@ export async function POST(req: Request) {
     });
     steps.push('[' + elapsed() + '] Draft olusturuldu: ' + listingId);
 
-    // PARALEL: Etsy property updates
     const propertyUpdates: Promise<void>[] = [];
 
     propertyUpdates.push(
@@ -468,43 +471,67 @@ export async function POST(req: Request) {
     steps.push('[' + elapsed() + '] Tum property update tamamlandi');
 
     // ====================================================================
-    // ETSY RESIM UPLOAD - top10 her zaman 10 (veya daha az) resim icerir
-    // upscaleApplied ise upscaledBuffers, degilse allImageBuffers kullan
-    // Eger allImageBuffers'da resim yoksa (yani sadece top10 indirdik) -> direkt allImageBuffers
+    // ETSY RESIM UPLOAD - SIRALI + RETRY
+    // Etsy paralel upload'da rate limit/conflict yapiyor.
+    // Tek tek yukluyoruz, basarisiz olursa 3 kez retry (1s, 2s, 4s gecikme).
     // ====================================================================
 
-    steps.push('[' + elapsed() + '] Etsy resim upload baslatildi (' + top10.length + ' resim)');
+    steps.push('[' + elapsed() + '] Etsy resim upload basliyor sirali (' + top10.length + ' resim)');
 
-    const etsyImageBatch = await processBatch(
-      top10,
-      3,
-      async (img, i) => {
-        let buf: Buffer | null = null;
+    let etsyImgSuccess = 0;
+    let etsyImgFail = 0;
+    const etsyErrors: string[] = [];
 
-        // 1. Once upscaledBuffers'a bak
-        if (upscaleApplied && upscaledBuffers[i]) {
-          buf = upscaledBuffers[i];
+    for (let i = 0; i < top10.length; i++) {
+      let buf: Buffer | null = null;
+
+      if (upscaleApplied && upscaledBuffers[i]) {
+        buf = upscaledBuffers[i];
+      } else if (allImageBuffers[i]) {
+        buf = allImageBuffers[i];
+      } else {
+        try {
+          buf = await downloadDriveFile(top10[i].id);
+        } catch (e: any) {
+          etsyImgFail++;
+          etsyErrors.push('Resim ' + (i + 1) + ' indirilemedi: ' + (e.message || '').slice(0, 80));
+          continue;
         }
-        // 2. Sonra allImageBuffers'a bak
-        else if (allImageBuffers[i]) {
-          buf = allImageBuffers[i];
-        }
-        // 3. Hala yoksa direkt indir (fallback)
-        else {
-          buf = await downloadDriveFile(img.id);
-        }
-
-        if (!buf) throw new Error('Resim buffer alinamadi');
-
-        const alt = buildAltText(seo.altBase, i + 1, top10.length);
-        await uploadListingImage(listingId, buf, i + 1, alt);
-        return true;
       }
-    );
-    const etsyImgSuccess = etsyImageBatch.results.filter((r) => r === true).length;
-    steps.push('[' + elapsed() + '] ' + etsyImgSuccess + '/' + top10.length + ' resim Etsy\'ye yuklendi' + (upscaleApplied ? ' (4032x4032)' : '') + (etsyImageBatch.errors > 0 ? ', ' + etsyImageBatch.errors + ' hata' : ''));
 
-    // PDF upload
+      if (!buf) {
+        etsyImgFail++;
+        etsyErrors.push('Resim ' + (i + 1) + ' buffer yok');
+        continue;
+      }
+
+      const alt = buildAltText(seo.altBase, i + 1, top10.length);
+      const result = await uploadListingImageWithRetry(listingId, buf, i + 1, alt, 3);
+
+      if (result.success) {
+        etsyImgSuccess++;
+      } else {
+        etsyImgFail++;
+        etsyErrors.push('Resim ' + (i + 1) + ': ' + result.error.slice(0, 80));
+      }
+
+      // Etsy'yi rahatlatmak icin her upload sonrasi 500ms bekle
+      if (i < top10.length - 1) {
+        await sleep(500);
+      }
+    }
+
+    steps.push('[' + elapsed() + '] Etsy upload sonuc: ' + etsyImgSuccess + '/' + top10.length + ' basarili' + (upscaleApplied ? ' (4032x4032)' : ''));
+    if (etsyImgFail > 0) {
+      // Ilk 3 hatayi log'a yaz
+      for (let i = 0; i < Math.min(3, etsyErrors.length); i++) {
+        steps.push('  - ' + etsyErrors[i]);
+      }
+      if (etsyErrors.length > 3) {
+        steps.push('  - ... ve ' + (etsyErrors.length - 3) + ' hata daha');
+      }
+    }
+
     const db = supabaseAdmin();
     const { data: tplRow } = await db
       .from('etsy_settings')
@@ -525,7 +552,6 @@ export async function POST(req: Request) {
       steps.push('UYARI: PDF sablonu yok');
     }
 
-    // Drive klasor adi degistir
     try {
       const folderId = extractFolderId(driveUrl);
       if (folderId) {
