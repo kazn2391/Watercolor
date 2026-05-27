@@ -1,7 +1,6 @@
-import { getValidEtsyToken, getEtsyApiKeyHeader } from './etsy-auth';
+import { getValidEtsyToken, getEtsyApiKeyHeader, getEtsyShopId } from './etsy-auth';
 
 const ETSY_API = 'https://api.etsy.com/v3/application';
-const SHOP_ID = process.env.ETSY_SHOP_ID || '49999102';
 
 const FIXED_PRICE = 2.22;
 const FIXED_QUANTITY = 100;
@@ -35,8 +34,9 @@ export async function findClipArtTaxonomyId(): Promise<number> {
   return id;
 }
 
-export async function createDraftListing(input: CreateInput): Promise<number> {
-  const token = await getValidEtsyToken();
+export async function createDraftListing(input: CreateInput, shopKey: string = 'shop1'): Promise<number> {
+  const token = await getValidEtsyToken(shopKey);
+  const shopId = getEtsyShopId(shopKey);
 
   const body = new URLSearchParams();
   body.append('quantity', String(FIXED_QUANTITY));
@@ -55,7 +55,7 @@ export async function createDraftListing(input: CreateInput): Promise<number> {
   body.append('tags', tagString);
 
   const res = await fetch(
-    ETSY_API + '/shops/' + SHOP_ID + '/listings',
+    ETSY_API + '/shops/' + shopId + '/listings',
     {
       method: 'POST',
       headers: {
@@ -78,10 +78,12 @@ export async function updateListingProperty(
   listingId: number,
   propertyId: number,
   valueIds: number[],
-  values: string[]
+  values: string[],
+  shopKey: string = 'shop1'
 ): Promise<boolean> {
   try {
-    const token = await getValidEtsyToken();
+    const token = await getValidEtsyToken(shopKey);
+    const shopId = getEtsyShopId(shopKey);
     const body = new URLSearchParams();
     for (const v of valueIds) {
       body.append('value_ids', String(v));
@@ -91,7 +93,7 @@ export async function updateListingProperty(
     }
 
     const res = await fetch(
-      ETSY_API + '/shops/' + SHOP_ID + '/listings/' + listingId + '/properties/' + propertyId,
+      ETSY_API + '/shops/' + shopId + '/listings/' + listingId + '/properties/' + propertyId,
       {
         method: 'PUT',
         headers: {
@@ -115,9 +117,11 @@ export async function uploadListingImage(
   listingId: number,
   imageBuffer: Buffer,
   rank: number,
-  altText: string
+  altText: string,
+  shopKey: string = 'shop1'
 ): Promise<void> {
-  const token = await getValidEtsyToken();
+  const token = await getValidEtsyToken(shopKey);
+  const shopId = getEtsyShopId(shopKey);
 
   const form = new FormData();
   const bytes = new Uint8Array(imageBuffer);
@@ -129,7 +133,7 @@ export async function uploadListingImage(
   }
 
   const res = await fetch(
-    ETSY_API + '/shops/' + SHOP_ID + '/listings/' + listingId + '/images',
+    ETSY_API + '/shops/' + shopId + '/listings/' + listingId + '/images',
     {
       method: 'POST',
       headers: {
@@ -148,9 +152,11 @@ export async function uploadListingImage(
 export async function uploadListingFile(
   listingId: number,
   pdfBuffer: Buffer,
-  fileName: string
+  fileName: string,
+  shopKey: string = 'shop1'
 ): Promise<void> {
-  const token = await getValidEtsyToken();
+  const token = await getValidEtsyToken(shopKey);
+  const shopId = getEtsyShopId(shopKey);
 
   const form = new FormData();
   const bytes = new Uint8Array(pdfBuffer);
@@ -159,7 +165,7 @@ export async function uploadListingFile(
   form.append('name', fileName);
 
   const res = await fetch(
-    ETSY_API + '/shops/' + SHOP_ID + '/listings/' + listingId + '/files',
+    ETSY_API + '/shops/' + shopId + '/listings/' + listingId + '/files',
     {
       method: 'POST',
       headers: {
