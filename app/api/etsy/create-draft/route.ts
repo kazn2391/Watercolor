@@ -70,6 +70,8 @@ const HOLIDAY_MAP: Record<string, number> = {
   'new years': 44, 'st patricks day': 45,
 };
 
+const ADMIN_PASSWORD = 'Kuzey2391';
+
 async function processBatch<T, R>(
   items: T[],
   concurrency: number,
@@ -101,7 +103,6 @@ async function processBatch<T, R>(
   return { results, errors };
 }
 
-// Sleep helper - rate limit icin kucuk gecikme
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -162,22 +163,21 @@ function buildAltText(altBase: string, rank: number, total: number): string {
   return v.slice(0, 250);
 }
 
-// Etsy upload icin retry helper - 3 deneme, expo backoff
 async function uploadListingImageWithRetry(
   listingId: number | string,
   buf: Buffer,
   rank: number,
   alt: string,
+  shopKey: string,
   maxAttempts: number = 3
 ): Promise<{ success: boolean; error: string }> {
   let lastError = '';
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      await uploadListingImage(listingId as number, buf, rank, alt);
+      await uploadListingImage(listingId as number, buf, rank, alt, shopKey);
       return { success: true, error: '' };
     } catch (e: any) {
       lastError = (e.message || 'bilinmeyen').slice(0, 150);
-      // Retry'lar arasi bekleme: 1s, 2s, 4s
       if (attempt < maxAttempts) {
         await sleep(1000 * Math.pow(2, attempt - 1));
       }
@@ -187,20 +187,26 @@ async function uploadListingImageWithRetry(
 }
 
 export async function POST(req: Request) {
+  // Authentication: ya CRON_SECRET (eski) ya da Kuzey2391 (yeni)
   const url = new URL(req.url);
   const adminKey = url.searchParams.get('key');
-  if (!process.env.CRON_SECRET || adminKey !== process.env.CRON_SECRET) {
+  const isOldKey = process.env.CRON_SECRET && adminKey === process.env.CRON_SECRET;
+  const isNewPassword = adminKey === ADMIN_PASSWORD;
+  if (!isOldKey && !isNewPassword) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   let driveUrl = '';
   let generatePng = false;
   let upscaleImages = false;
+  let shopKey: string = 'shop1';
   try {
     const bodyJson = await req.json();
     driveUrl = bodyJson.driveUrl || '';
     generatePng = bodyJson.generatePng === true;
     upscaleImages = bodyJson.upscaleImages === true;
+    // shop1 (SuzyFlowArt, default) veya shop2 (SuzyCardPrints)
+    shopKey = bodyJson.shopKey === 'shop2' ? 'shop2' : 'shop1';
   } catch (e) {
     return NextResponse.json({ error: 'driveUrl gerekli' }, { status: 400 });
   }
@@ -213,6 +219,9 @@ export async function POST(req: Request) {
   const elapsed = () => Math.round((Date.now() - t0) / 1000) + 's';
 
   try {
+    const shopLabel = shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt';
+    steps.push('[' + elapsed() + '] Shop: ' + shopLabel);
+
     steps.push('[' + elapsed() + '] Drive klasoru okunuyor');
     const folder = await readDriveFolder(driveUrl);
     if (folder.imageCount === 0) {
@@ -411,13 +420,13 @@ export async function POST(req: Request) {
       description: seo.description,
       tags: seo.tags,
       taxonomyId,
-    });
+    }, shopKey);
     steps.push('[' + elapsed() + '] Draft olusturuldu: ' + listingId);
 
     const propertyUpdates: Promise<void>[] = [];
 
     propertyUpdates.push(
-      updateListingProperty(listingId, PROP_CRAFT, CRAFT_VALUES, CRAFT_NAMES)
+      updateListingProperty(listingId, PROP_CRAFT, CRAFT_VALUES, CRAFT_NAMES, shopKey)
         .then((ok) => { steps.push('Craft type: ' + (ok ? 'OK' : 'atlandi')); })
         .catch(() => { steps.push('Craft type: hata'); })
     );
@@ -425,7 +434,7 @@ export async function POST(req: Request) {
     const pc = COLOR_MAP[(seo.primaryColor || '').toLowerCase().trim()];
     if (pc) {
       propertyUpdates.push(
-        updateListingProperty(listingId, PROP_PRIMARY_COLOR, [pc], [seo.primaryColor])
+        updateListingProperty(listingId, PROP_PRIMARY_COLOR, [pc], [seo.primaryColor], shopKey)
           .then((ok) => { steps.push('Primary color (' + seo.primaryColor + '): ' + (ok ? 'OK' : 'atlandi')); })
           .catch(() => { steps.push('Primary color: hata'); })
       );
@@ -434,7 +443,7 @@ export async function POST(req: Request) {
     const sc = COLOR_MAP[(seo.secondaryColor || '').toLowerCase().trim()];
     if (sc && sc !== pc) {
       propertyUpdates.push(
-        updateListingProperty(listingId, PROP_SECONDARY_COLOR, [sc], [seo.secondaryColor])
+        updateListingProperty(listingId, PROP_SECONDARY_COLOR, [sc], [seo.secondaryColor], shopKey)
           .then((ok) => { steps.push('Secondary color (' + seo.secondaryColor + '): ' + (ok ? 'OK' : 'atlandi')); })
           .catch(() => { steps.push('Secondary color: hata'); })
       );
@@ -443,7 +452,7 @@ export async function POST(req: Request) {
     const subj = SUBJECT_MAP[(seo.artSubject || '').toLowerCase().trim()];
     if (subj) {
       propertyUpdates.push(
-        updateListingProperty(listingId, PROP_SUBJECT, [subj], [seo.artSubject])
+        updateListingProperty(listingId, PROP_SUBJECT, [subj], [seo.artSubject], shopKey)
           .then((ok) => { steps.push('Art subject (' + seo.artSubject + '): ' + (ok ? 'OK' : 'atlandi')); })
           .catch(() => { steps.push('Art subject: hata'); })
       );
@@ -452,7 +461,7 @@ export async function POST(req: Request) {
     const occ = OCCASION_MAP[(seo.occasion || '').toLowerCase().trim()];
     if (occ) {
       propertyUpdates.push(
-        updateListingProperty(listingId, PROP_OCCASION, [occ], [seo.occasion])
+        updateListingProperty(listingId, PROP_OCCASION, [occ], [seo.occasion], shopKey)
           .then((ok) => { steps.push('Occasion (' + seo.occasion + '): ' + (ok ? 'OK' : 'atlandi')); })
           .catch(() => { steps.push('Occasion: hata'); })
       );
@@ -461,7 +470,7 @@ export async function POST(req: Request) {
     const hol = HOLIDAY_MAP[(seo.holiday || '').toLowerCase().trim()];
     if (hol) {
       propertyUpdates.push(
-        updateListingProperty(listingId, PROP_HOLIDAY, [hol], [seo.holiday])
+        updateListingProperty(listingId, PROP_HOLIDAY, [hol], [seo.holiday], shopKey)
           .then((ok) => { steps.push('Holiday (' + seo.holiday + '): ' + (ok ? 'OK' : 'atlandi')); })
           .catch(() => { steps.push('Holiday: hata'); })
       );
@@ -469,12 +478,6 @@ export async function POST(req: Request) {
 
     await Promise.all(propertyUpdates);
     steps.push('[' + elapsed() + '] Tum property update tamamlandi');
-
-    // ====================================================================
-    // ETSY RESIM UPLOAD - SIRALI + RETRY
-    // Etsy paralel upload'da rate limit/conflict yapiyor.
-    // Tek tek yukluyoruz, basarisiz olursa 3 kez retry (1s, 2s, 4s gecikme).
-    // ====================================================================
 
     steps.push('[' + elapsed() + '] Etsy resim upload basliyor sirali (' + top10.length + ' resim)');
 
@@ -506,7 +509,7 @@ export async function POST(req: Request) {
       }
 
       const alt = buildAltText(seo.altBase, i + 1, top10.length);
-      const result = await uploadListingImageWithRetry(listingId, buf, i + 1, alt, 3);
+      const result = await uploadListingImageWithRetry(listingId, buf, i + 1, alt, shopKey, 3);
 
       if (result.success) {
         etsyImgSuccess++;
@@ -515,7 +518,6 @@ export async function POST(req: Request) {
         etsyErrors.push('Resim ' + (i + 1) + ': ' + result.error.slice(0, 80));
       }
 
-      // Etsy'yi rahatlatmak icin her upload sonrasi 500ms bekle
       if (i < top10.length - 1) {
         await sleep(500);
       }
@@ -523,7 +525,6 @@ export async function POST(req: Request) {
 
     steps.push('[' + elapsed() + '] Etsy upload sonuc: ' + etsyImgSuccess + '/' + top10.length + ' basarili' + (upscaleApplied ? ' (4032x4032)' : ''));
     if (etsyImgFail > 0) {
-      // Ilk 3 hatayi log'a yaz
       for (let i = 0; i < Math.min(3, etsyErrors.length); i++) {
         steps.push('  - ' + etsyErrors[i]);
       }
@@ -543,7 +544,7 @@ export async function POST(req: Request) {
       try {
         const tplBuf = Buffer.from(tplRow.pdf_template_b64, 'base64');
         const newPdf = await rewritePdfDownloadLink(tplBuf, driveUrl);
-        await uploadListingFile(listingId, newPdf, 'download.pdf');
+        await uploadListingFile(listingId, newPdf, 'download.pdf', shopKey);
         steps.push('[' + elapsed() + '] PDF link degistirildi ve yuklendi');
       } catch (pdfErr: any) {
         steps.push('PDF HATASI: ' + pdfErr.message);
@@ -567,10 +568,12 @@ export async function POST(req: Request) {
 
     steps.push('[' + elapsed() + '] TAMAMLANDI');
 
+    const shopUrlSlug = shopKey === 'shop2' ? 'SuzyCardPrints' : 'me';
     return NextResponse.json({
       success: true,
       listingId,
-      etsyEditUrl: 'https://www.etsy.com/your/shops/me/listing-editor/edit/' + listingId,
+      shop: shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt',
+      etsyEditUrl: 'https://www.etsy.com/your/shops/' + shopUrlSlug + '/listing-editor/edit/' + listingId,
       seo,
       steps,
     });
