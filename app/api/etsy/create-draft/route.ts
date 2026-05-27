@@ -70,6 +70,38 @@ const HOLIDAY_MAP: Record<string, number> = {
   'new years': 44, 'st patricks day': 45,
 };
 
+// Paralel batch islem icin yardimci - concurrency limit ile array islem
+async function processBatch<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<{ results: (R | null)[]; errors: number }> {
+  const results: (R | null)[] = new Array(items.length).fill(null);
+  let errors = 0;
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const myIndex = nextIndex++;
+      if (myIndex >= items.length) break;
+      try {
+        results[myIndex] = await fn(items[myIndex], myIndex);
+      } catch (e) {
+        errors++;
+        results[myIndex] = null;
+      }
+    }
+  }
+
+  const workers: Promise<void>[] = [];
+  for (let i = 0; i < Math.min(concurrency, items.length); i++) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
+
+  return { results, errors };
+}
+
 async function describeImageBuffer(buf: Buffer): Promise<string> {
   const small = await sharp(buf)
     .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
@@ -149,8 +181,11 @@ export async function POST(req: Request) {
   }
 
   const steps: string[] = [];
+  const t0 = Date.now();
+  const elapsed = () => Math.round((Date.now() - t0) / 1000) + 's';
+
   try {
-    steps.push('Drive klasoru okunuyor');
+    steps.push('[' + elapsed() + '] Drive klasoru okunuyor');
     const folder = await readDriveFolder(driveUrl);
     if (folder.imageCount === 0) {
       return NextResponse.json(
@@ -158,25 +193,26 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    steps.push(folder.imageCount + ' resim, PNG: ' + folder.hasPng + ', JPG: ' + folder.hasJpg + ', PDF: ' + folder.hasPdf + ', PNG subfolder: ' + folder.hasPngSubfolder);
+    steps.push('[' + elapsed() + '] ' + folder.imageCount + ' resim, PNG: ' + folder.hasPng + ', JPG: ' + folder.hasJpg + ', PDF: ' + folder.hasPdf + ', PNG subfolder: ' + folder.hasPngSubfolder);
 
     const top10 = folder.images.slice(0, 10);
 
-    const analyzeBuffers: Buffer[] = [];
-    for (let i = 0; i < Math.min(2, top10.length); i++) {
-      const b = await downloadDriveFile(top10[i].id);
-      analyzeBuffers.push(b);
-    }
+    // PARALEL: Ilk 2 resmi analiz icin paralel indir
+    const analyzeBatch = await processBatch(
+      top10.slice(0, 2),
+      2,
+      async (img) => downloadDriveFile(img.id)
+    );
+    const analyzeBuffers: Buffer[] = analyzeBatch.results.filter((b): b is Buffer => b !== null);
+    steps.push('[' + elapsed() + '] Analiz icin ' + analyzeBuffers.length + ' resim indirildi');
 
-    const descs: string[] = [];
-    for (const b of analyzeBuffers) {
-      try {
-        const d = await describeImageBuffer(b);
-        if (d && d.length > 3) descs.push(d);
-      } catch (e: any) {
-        steps.push('Resim analiz uyarisi: ' + (e.message || 'bilinmeyen'));
-      }
-    }
+    // PARALEL: 2 resmi paralel analiz et
+    const descBatch = await processBatch(
+      analyzeBuffers,
+      2,
+      async (buf) => describeImageBuffer(buf)
+    );
+    const descs: string[] = descBatch.results.filter((d): d is string => d !== null && d.length > 3);
 
     if (descs.length === 0) {
       return NextResponse.json(
@@ -184,7 +220,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    steps.push('Gorseller analiz edildi: ' + descs[0].slice(0, 60));
+    steps.push('[' + elapsed() + '] Gorseller analiz edildi: ' + descs[0].slice(0, 60));
 
     let folderNumber = '';
     let currentFolderName = '';
@@ -195,49 +231,57 @@ export async function POST(req: Request) {
         const numMatch = currentFolderName.match(/^(\d+)/);
         if (numMatch) {
           folderNumber = numMatch[1];
-          steps.push('Klasor numarasi: ' + folderNumber);
-        } else {
-          steps.push('Klasor adi: ' + currentFolderName + ' (numara bulunamadi)');
+          steps.push('[' + elapsed() + '] Klasor numarasi: ' + folderNumber);
         }
       }
     } catch (e: any) {
       steps.push('Klasor adi okunamadi: ' + (e.message || 'bilinmeyen'));
     }
 
-    let pngGenerated = false;
+    // PARALEL: Tum kalan resimleri paralel indir (eger gerekiyorsa)
     const allImageBuffers: Buffer[] = [...analyzeBuffers];
+    const needsAllBuffers = generatePng || upscaleImages || folder.images.length > top10.length;
 
+    if (needsAllBuffers && folder.images.length > analyzeBuffers.length) {
+      const remainingImages = folder.images.slice(analyzeBuffers.length);
+      steps.push('[' + elapsed() + '] ' + remainingImages.length + ' resim paralel indiriliyor');
+      const downloadBatch = await processBatch(
+        remainingImages,
+        5,
+        async (img) => downloadDriveFile(img.id)
+      );
+      for (const buf of downloadBatch.results) {
+        if (buf) allImageBuffers.push(buf);
+      }
+      steps.push('[' + elapsed() + '] Toplam ' + allImageBuffers.length + ' resim hazir');
+    }
+
+    // PARALEL: PNG uretimi
+    let pngGenerated = false;
     if (generatePng) {
-      steps.push('PNG uretimi baslatildi (Photoroom + OAuth)');
+      steps.push('[' + elapsed() + '] PNG uretimi baslatildi (paralel)');
       try {
         const parentFolderId = folder.folderId;
         if (!parentFolderId) throw new Error('Folder ID yok');
 
-        for (let i = analyzeBuffers.length; i < folder.images.length; i++) {
-          const b = await downloadDriveFile(folder.images[i].id);
-          allImageBuffers.push(b);
-        }
-        steps.push('Toplam ' + allImageBuffers.length + ' resim indirildi');
-
         const pngFolderId = await oauthCreateOrGetSubfolder(parentFolderId, 'Png');
-        steps.push('Png alt klasoru hazir (OAuth)');
+        steps.push('[' + elapsed() + '] Png alt klasoru hazir');
 
-        let pngSuccessCount = 0;
-        let pngFailCount = 0;
-        for (let i = 0; i < allImageBuffers.length; i++) {
-          try {
-            const pngBuf = await removeBackground(allImageBuffers[i]);
+        // PARALEL: 5 concurrent Photoroom call + upload
+        const pngBatch = await processBatch(
+          allImageBuffers,
+          5,
+          async (buf, i) => {
+            const pngBuf = await removeBackground(buf);
             const originalName = folder.images[i] ? folder.images[i].name : 'image' + (i + 1);
             const baseName = originalName.replace(/\.(jpg|jpeg|png)$/i, '');
             const pngName = baseName + '.png';
             await oauthUploadFileToDrive(pngFolderId, pngName, pngBuf, 'image/png');
-            pngSuccessCount++;
-          } catch (perr: any) {
-            pngFailCount++;
-            steps.push('PNG hatasi (resim ' + (i + 1) + '): ' + (perr.message || '').slice(0, 100));
+            return true;
           }
-        }
-        steps.push('PNG sonuc: ' + pngSuccessCount + ' basarili, ' + pngFailCount + ' hatali');
+        );
+        const pngSuccessCount = pngBatch.results.filter((r) => r === true).length;
+        steps.push('[' + elapsed() + '] PNG sonuc: ' + pngSuccessCount + ' basarili, ' + pngBatch.errors + ' hatali');
         if (pngSuccessCount > 0) pngGenerated = true;
       } catch (pngErr: any) {
         steps.push('PNG uretim HATASI: ' + (pngErr.message || 'bilinmeyen'));
@@ -255,65 +299,53 @@ export async function POST(req: Request) {
       hasPngSubfolder: finalHasPngSubfolder,
       folderNumber,
     });
-    steps.push('SEO uretildi: ' + seo.title.slice(0, 55));
+    steps.push('[' + elapsed() + '] SEO uretildi: ' + seo.title.slice(0, 55));
 
-    // UPSCALE - SEO'dan SONRA, Etsy yukleme ONCESI
-    // Eski dosyalar Service Account ile 'Low Quality' alt klasorune TASINIR
-    let upscaledBuffers: Buffer[] = [];
+    // PARALEL: UPSCALE
+    let upscaledBuffers: Buffer[] = new Array(allImageBuffers.length).fill(null);
     let upscaleApplied = false;
 
     if (upscaleImages) {
-      steps.push('Upscale baslatildi (4032x4032 JPG max kalite)');
+      steps.push('[' + elapsed() + '] Upscale baslatildi (paralel, 4032x4032)');
       try {
         const parentFolderId = folder.folderId;
         if (!parentFolderId) throw new Error('Folder ID yok');
 
-        for (let i = allImageBuffers.length; i < folder.images.length; i++) {
-          const b = await downloadDriveFile(folder.images[i].id);
-          allImageBuffers.push(b);
-        }
-        steps.push('Upscale icin ' + allImageBuffers.length + ' resim hazir');
-
         const baseName = buildBaseNameFromTitle(seo.title);
-        steps.push('Yeni isim base: ' + baseName);
+        steps.push('[' + elapsed() + '] Yeni isim base: ' + baseName);
 
-        let upscaleSuccessCount = 0;
-        let upscaleFailCount = 0;
-
-        for (let i = 0; i < allImageBuffers.length; i++) {
-          try {
-            const bigBuf = await upscaleToJpeg(allImageBuffers[i]);
-            upscaledBuffers.push(bigBuf);
+        // PARALEL: 5 concurrent upscale + upload
+        const upscaleBatch = await processBatch(
+          allImageBuffers,
+          5,
+          async (buf, i) => {
+            const bigBuf = await upscaleToJpeg(buf);
+            upscaledBuffers[i] = bigBuf;
             const newName = baseName + (i + 1) + '.jpg';
             await oauthUploadFileToDrive(parentFolderId, newName, bigBuf, 'image/jpeg');
-            upscaleSuccessCount++;
-          } catch (uerr: any) {
-            upscaleFailCount++;
-            steps.push('Upscale hatasi (resim ' + (i + 1) + '): ' + (uerr.message || '').slice(0, 100));
+            return bigBuf;
           }
-        }
-        steps.push('Upscale sonuc: ' + upscaleSuccessCount + ' basarili, ' + upscaleFailCount + ' hatali');
+        );
+        const upscaleSuccessCount = upscaleBatch.results.filter((r) => r !== null).length;
+        steps.push('[' + elapsed() + '] Upscale sonuc: ' + upscaleSuccessCount + ' basarili, ' + upscaleBatch.errors + ' hatali');
 
-        // Eski dosyalari "Low Quality" alt klasorune Service Account ile tasi
+        // PARALEL: Eski dosyalari "Low Quality" alt klasorune tasi
         if (upscaleSuccessCount === allImageBuffers.length) {
           try {
             const lowQualityFolderId = await serviceCreateOrGetSubfolder(parentFolderId, 'Low Quality');
-            steps.push('Low Quality alt klasoru hazir (Service Account)');
+            steps.push('[' + elapsed() + '] Low Quality alt klasoru hazir');
 
-            let moveSuccessCount = 0;
-            let moveFailCount = 0;
-            for (const img of folder.images) {
-              try {
+            // PARALEL: 5 concurrent move
+            const moveBatch = await processBatch(
+              folder.images,
+              5,
+              async (img) => {
                 await serviceMoveFile(img.id, parentFolderId, lowQualityFolderId);
-                moveSuccessCount++;
-              } catch (merr: any) {
-                moveFailCount++;
-                if (moveFailCount === 1) {
-                  steps.push('Move hata ornegi: ' + (merr.message || '').slice(0, 100));
-                }
+                return true;
               }
-            }
-            steps.push('Eski dosyalar tasindi: ' + moveSuccessCount + ' basarili, ' + moveFailCount + ' hatali');
+            );
+            const moveSuccessCount = moveBatch.results.filter((r) => r === true).length;
+            steps.push('[' + elapsed() + '] Eski dosyalar tasindi: ' + moveSuccessCount + ' basarili, ' + moveBatch.errors + ' hatali');
             upscaleApplied = true;
           } catch (lqErr: any) {
             steps.push('Low Quality klasor HATASI: ' + (lqErr.message || 'bilinmeyen'));
@@ -328,7 +360,7 @@ export async function POST(req: Request) {
     }
 
     const taxonomyId = await findClipArtTaxonomyId();
-    steps.push('Taxonomy: ' + taxonomyId);
+    steps.push('[' + elapsed() + '] Taxonomy: ' + taxonomyId);
 
     const listingId = await createDraftListing({
       title: seo.title,
@@ -336,55 +368,87 @@ export async function POST(req: Request) {
       tags: seo.tags,
       taxonomyId,
     });
-    steps.push('Draft olusturuldu: ' + listingId);
+    steps.push('[' + elapsed() + '] Draft olusturuldu: ' + listingId);
 
-    const okCraft = await updateListingProperty(listingId, PROP_CRAFT, CRAFT_VALUES, CRAFT_NAMES);
-    steps.push('Craft type: ' + (okCraft ? 'OK' : 'atlandi'));
+    // PARALEL: Etsy property updates (her biri ayri request, paralel olabilir)
+    const propertyUpdates: Promise<void>[] = [];
+
+    propertyUpdates.push(
+      updateListingProperty(listingId, PROP_CRAFT, CRAFT_VALUES, CRAFT_NAMES)
+        .then((ok) => { steps.push('Craft type: ' + (ok ? 'OK' : 'atlandi')); })
+        .catch(() => { steps.push('Craft type: hata'); })
+    );
 
     const pc = COLOR_MAP[(seo.primaryColor || '').toLowerCase().trim()];
     if (pc) {
-      const ok = await updateListingProperty(listingId, PROP_PRIMARY_COLOR, [pc], [seo.primaryColor]);
-      steps.push('Primary color (' + seo.primaryColor + '): ' + (ok ? 'OK' : 'atlandi'));
+      propertyUpdates.push(
+        updateListingProperty(listingId, PROP_PRIMARY_COLOR, [pc], [seo.primaryColor])
+          .then((ok) => { steps.push('Primary color (' + seo.primaryColor + '): ' + (ok ? 'OK' : 'atlandi')); })
+          .catch(() => { steps.push('Primary color: hata'); })
+      );
     }
 
     const sc = COLOR_MAP[(seo.secondaryColor || '').toLowerCase().trim()];
     if (sc && sc !== pc) {
-      const ok = await updateListingProperty(listingId, PROP_SECONDARY_COLOR, [sc], [seo.secondaryColor]);
-      steps.push('Secondary color (' + seo.secondaryColor + '): ' + (ok ? 'OK' : 'atlandi'));
+      propertyUpdates.push(
+        updateListingProperty(listingId, PROP_SECONDARY_COLOR, [sc], [seo.secondaryColor])
+          .then((ok) => { steps.push('Secondary color (' + seo.secondaryColor + '): ' + (ok ? 'OK' : 'atlandi')); })
+          .catch(() => { steps.push('Secondary color: hata'); })
+      );
     }
 
     const subj = SUBJECT_MAP[(seo.artSubject || '').toLowerCase().trim()];
     if (subj) {
-      const ok = await updateListingProperty(listingId, PROP_SUBJECT, [subj], [seo.artSubject]);
-      steps.push('Art subject (' + seo.artSubject + '): ' + (ok ? 'OK' : 'atlandi'));
+      propertyUpdates.push(
+        updateListingProperty(listingId, PROP_SUBJECT, [subj], [seo.artSubject])
+          .then((ok) => { steps.push('Art subject (' + seo.artSubject + '): ' + (ok ? 'OK' : 'atlandi')); })
+          .catch(() => { steps.push('Art subject: hata'); })
+      );
     }
 
     const occ = OCCASION_MAP[(seo.occasion || '').toLowerCase().trim()];
     if (occ) {
-      const ok = await updateListingProperty(listingId, PROP_OCCASION, [occ], [seo.occasion]);
-      steps.push('Occasion (' + seo.occasion + '): ' + (ok ? 'OK' : 'atlandi'));
+      propertyUpdates.push(
+        updateListingProperty(listingId, PROP_OCCASION, [occ], [seo.occasion])
+          .then((ok) => { steps.push('Occasion (' + seo.occasion + '): ' + (ok ? 'OK' : 'atlandi')); })
+          .catch(() => { steps.push('Occasion: hata'); })
+      );
     }
 
     const hol = HOLIDAY_MAP[(seo.holiday || '').toLowerCase().trim()];
     if (hol) {
-      const ok = await updateListingProperty(listingId, PROP_HOLIDAY, [hol], [seo.holiday]);
-      steps.push('Holiday (' + seo.holiday + '): ' + (ok ? 'OK' : 'atlandi'));
+      propertyUpdates.push(
+        updateListingProperty(listingId, PROP_HOLIDAY, [hol], [seo.holiday])
+          .then((ok) => { steps.push('Holiday (' + seo.holiday + '): ' + (ok ? 'OK' : 'atlandi')); })
+          .catch(() => { steps.push('Holiday: hata'); })
+      );
     }
 
-    for (let i = 0; i < top10.length; i++) {
-      let buf: Buffer;
-      if (upscaleApplied && i < upscaledBuffers.length) {
-        buf = upscaledBuffers[i];
-      } else if (i < allImageBuffers.length) {
-        buf = allImageBuffers[i];
-      } else {
-        buf = await downloadDriveFile(top10[i].id);
+    await Promise.all(propertyUpdates);
+    steps.push('[' + elapsed() + '] Tum property update tamamlandi');
+
+    // PARALEL: Etsy resim upload
+    const etsyImageBatch = await processBatch(
+      top10,
+      3,
+      async (img, i) => {
+        let buf: Buffer;
+        if (upscaleApplied && upscaledBuffers[i]) {
+          buf = upscaledBuffers[i];
+        } else if (i < allImageBuffers.length) {
+          buf = allImageBuffers[i];
+        } else {
+          buf = await downloadDriveFile(img.id);
+        }
+        const alt = buildAltText(seo.altBase, i + 1, top10.length);
+        await uploadListingImage(listingId, buf, i + 1, alt);
+        return true;
       }
-      const alt = buildAltText(seo.altBase, i + 1, top10.length);
-      await uploadListingImage(listingId, buf, i + 1, alt);
-    }
-    steps.push(top10.length + ' resim + alt text yuklendi' + (upscaleApplied ? ' (4032x4032)' : ''));
+    );
+    const etsyImgSuccess = etsyImageBatch.results.filter((r) => r === true).length;
+    steps.push('[' + elapsed() + '] ' + etsyImgSuccess + ' resim + alt text yuklendi' + (upscaleApplied ? ' (4032x4032)' : ''));
 
+    // PDF upload (kucuk, paralele gerek yok)
     const db = supabaseAdmin();
     const { data: tplRow } = await db
       .from('etsy_settings')
@@ -397,7 +461,7 @@ export async function POST(req: Request) {
         const tplBuf = Buffer.from(tplRow.pdf_template_b64, 'base64');
         const newPdf = await rewritePdfDownloadLink(tplBuf, driveUrl);
         await uploadListingFile(listingId, newPdf, 'download.pdf');
-        steps.push('PDF link degistirildi ve yuklendi');
+        steps.push('[' + elapsed() + '] PDF link degistirildi ve yuklendi');
       } catch (pdfErr: any) {
         steps.push('PDF HATASI: ' + pdfErr.message);
       }
@@ -405,6 +469,7 @@ export async function POST(req: Request) {
       steps.push('UYARI: PDF sablonu yok');
     }
 
+    // Drive klasor adi degistir
     try {
       const folderId = extractFolderId(driveUrl);
       if (folderId) {
@@ -412,11 +477,13 @@ export async function POST(req: Request) {
           ? folderNumber + ' - ' + seo.title
           : seo.title;
         await renameDriveFolder(folderId, newFolderName);
-        steps.push('Drive klasor adi guncellendi: ' + newFolderName.slice(0, 60));
+        steps.push('[' + elapsed() + '] Drive klasor adi guncellendi');
       }
     } catch (renameErr: any) {
       steps.push('Drive rename HATASI: ' + renameErr.message);
     }
+
+    steps.push('[' + elapsed() + '] TAMAMLANDI');
 
     return NextResponse.json({
       success: true,
