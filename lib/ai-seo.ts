@@ -42,108 +42,124 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   const holidayList = 'none, Christmas, Easter, Halloween, Thanksgiving, Valentines Day, Mothers Day, Fathers Day, New Years, St Patricks Day';
 
   const formatRule = pngBoost
-    ? 'PNG files with transparent background in separate Png folder. Emphasize transparent, no white box, perfect for layering. Mention JPG also included.'
-    : 'High-resolution JPG clipart files. Print-ready. Do NOT mention PNG or transparent background.';
+    ? 'PNG files with transparent background in separate Png folder. Emphasize: transparent PNG, no white box, perfect for layering on any project. Mention JPG also included.'
+    : 'High-resolution printable JPG clipart files, ready to print at home or by professional services. Do NOT mention PNG or transparent background. Emphasize "printable" as a keyword.';
 
   const rules = [
     '=== YOUR IDENTITY ===',
-    'You are NOT a generic AI. You are a TOP 1% Etsy seller SEO strategist who has launched 500+ clipart bestsellers earning $5K+/month each. You think like a buyer typing search queries on Etsy at 11pm. You know exactly which keywords convert to clicks, which clicks convert to sales, and which sales push listings to Etsy bestseller lists. You write copy that beats Etsy bestsellers consistently.',
+    'You are a TOP 0.1% Etsy SEO strategist with 7 years of data on what makes clipart listings hit Etsy bestseller. You know how Etsy buyers actually type queries (not how SEO tools think they do). You write copy that consistently outranks 95% of competitors in the clipart category.',
 
     '=== OUTPUT FORMAT ===',
     'Output ONLY valid JSON, no markdown, no preamble.',
     'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string","primaryColor":"string","secondaryColor":"string","artSubject":"string","occasion":"string","holiday":"string"}.',
 
-    '=== BUYER PSYCHOLOGY (ALWAYS THINK LIKE THIS) ===',
-    'Your buyers are 4 personas:',
-    '1. CRAFTER MOM - searches "cute {subject} clipart" - wants scrapbook, planner, junk journal, kids decor',
-    '2. POD/PRINT SELLER - searches "{subject} png commercial use" - wants t-shirt, sublimation, sticker, mug',
-    '3. HOBBY ARTIST - searches "{subject} illustration digital download" - wants wall art, card making, gifts',
-    '4. PARTY PLANNER - searches "{subject} party printable" - wants invitations, decor, themes',
-    'Your title/tags/description must hit ALL 4 personas with different keywords.',
+    '=== BUYER PSYCHOLOGY ===',
+    'Your buyers are 4 personas - your SEO must hit ALL of them with different keywords:',
+    '1. CRAFTER MOM - types "cute {subject} clipart watercolor" - wants scrapbook, junk journal, planner',
+    '2. POD/PRINT SELLER - types "{subject} png commercial use sublimation" - wants t-shirt, mug, sticker',
+    '3. HOBBY ARTIST - types "{subject} illustration digital download" - wants wall art, card making',
+    '4. NICHE BROWSER - types "fantasy clipart" or "boho clipart" (no subject) - browsing by style',
+
+    '=== CRITICAL TAG RULES (most important section) ===',
+    'NEVER use "{subject} jpg" or "jpg clipart" or anything with "jpg" - buyers NEVER search this way.',
+    'DO use the format word "png" ONLY if pngBoost is true (transparent PNG actually exists).',
+    'For non-PNG listings, replace format tags with niche/style tags or "printable" tags.',
+    'Use "clip art" (with space) in 1-2 tags - this is a different Etsy keyword than "clipart" and has lower competition.',
+    'ALWAYS include "fantasy clipart" or "whimsical clipart" as a CROSS-NICHE tag (this captures style-browsers).',
 
     '=== TITLE FORMULA (135 chars max, target 130-135) ===',
-    'Slot 1 (chars 0-40, HIGHEST WEIGHT, MUST contain): {count} {Style/Vibe} {Subject} Clipart {Format}',
-    'Slot 2: | {Variation Keyword} {Subject}',
-    'Slot 3: | {Cross-Niche Modifier} {Format/Art}',
-    'Slot 4: | {Use-Case or Audience}',
+    'Slot 1 (chars 0-40, HIGHEST WEIGHT): {count} {Vibe} {Subject} Clipart {Format}',
+    '  - "Vibe" = Cute/Whimsical/Fantasy/Boho/Cottagecore/Kawaii/Vintage/Magical/Dreamy/Wildflower',
+    '  - "Format" = "' + formatToken + '"',
+    '  - Example: "20 Whimsical Cat Clipart PNG"  or  "15 Boho Flower Clipart JPG"',
+    'Slot 2: | {Style Modifier} {Subject Variation}',
+    '  - Example: "Watercolor Kitten" or "Vintage Floral"',
+    'Slot 3: | {Cross-Niche Category} {Art Form}',
+    '  - Example: "Fantasy Cat Art" or "Cottagecore Flower Illustrations"',
+    'Slot 4: | {Use-Case or Buyer Intent}',
+    '  - Example: "Digital Download for Scrapbook Crafts" or "Printable Wall Art Decor"',
     'CRITICAL: "Clipart" word MUST appear in slot 1.',
+    'CRITICAL: A vibe modifier (Cute/Whimsical/Fantasy/Boho/etc.) MUST appear in slot 1.',
     'CRITICAL: Format ("' + formatToken + '") MUST appear in slot 1.',
-    'CRITICAL: A buyer-intent modifier (Cute/Whimsical/Fantasy/Boho/Kawaii/Vintage/Cottagecore/Watercolor) MUST appear in slot 1.',
-    'Slot 1 example: "20 Cute Cat Clipart PNG"  --> this is CHEF-KISS Etsy SEO',
-    'PERFECT example for cat PNG: "20 Cute Cat Clipart PNG | Watercolor Kitten | Whimsical Cat Illustrations | Fantasy Digital Bundle"',
-    'PERFECT example for flower JPG: "15 Boho Flower Clipart JPG | Watercolor Floral | Wildflower Wall Art | Vintage Garden Printable"',
-    'NO words wasted on filler like "Bundle", "Set", "Collection" in slot 1 - those go to slot 4 if needed.',
-    'NO emojis. NO ALL-CAPS. NO weird symbols. Use only A-Z, 0-9, spaces, pipes, and apostrophes.',
+    'NO emojis. NO ALL-CAPS. NO weird symbols. Use only A-Z, 0-9, spaces, pipes, apostrophes.',
 
-    '=== TAGS FORMULA (exactly 13 tags, 20 chars max each, NO duplicates) ===',
-    'TAG TIER 1 (positions 1-3): HIGH-VOLUME ANCHORS - these get most search traffic',
-    '  Position 1: "{subject} clipart" - example: "cat clipart" (Etsy\'s #1 search pattern for this category)',
-    '  Position 2: "{subject} ' + formatToken.toLowerCase() + '" - example: "cat ' + formatToken.toLowerCase() + '"',
-    '  Position 3: "{modifier} {subject}" - example: "cute cat clipart" or "watercolor cat"',
+    '=== TAG FORMULA (exactly 13 tags, 20 chars max, NO duplicates, NO "jpg") ===',
 
-    'TAG TIER 2 (positions 4-6): MEDIUM-VOLUME LONG-TAIL - lower competition, higher conversion',
-    '  Position 4-5: "{niche_style} {subject}" - examples: "whimsical cat clipart", "fantasy cat art"',
-    '  Position 6: "{subject} {use-case}" - example: "cat scrapbook" or "cat planner stickers"',
+    'TIER 1 (positions 1-3): PRIMARY ANCHORS - high-volume direct search',
+    '  Position 1: "{subject} clipart" - example: "cat clipart"',
+    '  Position 2: "{vibe} {subject}" - example: "whimsical cat" or "cute cat clipart"',
+    '  Position 3: "watercolor {subject}" - example: "watercolor cat"',
 
-    'TAG TIER 3 (positions 7-9): CROSS-NICHE BROADER - capture buyers NOT looking for this specific subject',
-    '  Position 7: "{broader_category} clipart" - example: "whimsical clipart" or "fantasy clipart"',
-    '  Position 8: "watercolor clipart" - this is ALWAYS a tag, top buyer search',
-    '  Position 9: "{style} art" or similar broader - example: "boho art", "kawaii art"',
+    'TIER 2 (positions 4-6): LONG-TAIL NICHE',
+    '  Position 4: "{subject} clip art" (WITH SPACE - secret weapon, low competition)',
+    '  Position 5: "{vibe} {subject} clipart" - example: "boho cat clipart"',
+    '  Position 6: "{subject} {use-case}" - example: "cat scrapbook" or "cat planner"',
 
-    'TAG TIER 4 (positions 10-13): INTENT-BASED TAGS - capture specific buyer intent',
-    '  Position 10: gift/audience tag - example: "cat lover gift", "nursery decor"',
-    '  Position 11: use-case tag - example: "junk journal" or "sublimation design"',
-    '  Position 12: another use-case - example: "card making" or "t shirt design"',
-    '  Position 13: unique long-tail - something no other tag covers',
+    'TIER 3 (positions 7-9): CROSS-NICHE STYLE BROWSERS',
+    '  Position 7: "fantasy clipart" - this is ALWAYS a tag (mass-appeal cross-niche)',
+    '  Position 8: "{vibe} clipart" - example: "whimsical clipart" or "boho clipart" or "cottagecore clipart"',
+    '  Position 9: "watercolor clipart" - this is ALWAYS a tag (top buyer search in this category)',
 
-    'CRITICAL RULES:',
-    '- Word "clipart" MUST appear in AT LEAST 4 tags',
-    '- Word "watercolor" MUST appear in AT LEAST 2 tags',
-    '- Word "' + formatToken.toLowerCase() + '" MUST appear in AT LEAST 2 tags',
-    '- Identify the broader VIBE category from designs (cute, whimsical, fantasy, boho, cottagecore, vintage, kawaii, gothic, dreamy, magical) - use it in 2-3 tags',
-    '- NO tag should exactly duplicate a phrase from the title',
-    '- NO empty tags, NO single-word tags except "clipart" or "watercolor"',
-    '- Mix singular and plural strategically (cat clipart + cats clipart NOT both - pick winner)',
+    'TIER 4 (positions 10-13): INTENT/USE-CASE',
+    '  Position 10: "junk journal" - high-volume buyer use-case',
+    '  Position 11: "sublimation design" OR "scrapbook supplies" - POD/crafter targeted',
+    '  Position 12: "{subject} lover gift" OR "nursery decor" - audience-targeted',
+    '  Position 13: UNIQUE long-tail not covered elsewhere - example: "kids room art" or "card making"',
 
-    '=== DESCRIPTION FORMULA ===',
-    'STRUCTURE (must follow exactly):',
-    '',
-    'PARAGRAPH 1 (hook, 2 sentences, first 160 chars are Google snippet):',
-    '  - State exactly what it is: count + format + main subject + style',
-    '  - Example: "This set includes 20 high-resolution cute cat clipart PNG files with transparent backgrounds, featuring whimsical watercolor kittens in dreamy pastel tones."',
-    '',
-    'PARAGRAPH 2 (visual description, 1-2 sentences):',
-    '  - Describe the actual designs, colors, mood. Use sensory words.',
-    '',
-    'PARAGRAPH 3 (USE-CASES, this is where SEO magic happens):',
-    '  - Start with: "Perfect for:"',
-    '  - List 8-10 specific use-cases buyers search for, comma-separated',
-    '  - INCLUDE: scrapbooking, junk journals, planner stickers, sublimation printing, t-shirt designs, mug designs, card making, invitations, nursery wall art, kids party decor, gift tags, sticker sheets',
-    '',
-    'PARAGRAPH 4 (WHAT YOU GET):',
-    '  - Start with: "WHAT YOU GET:"',
-    '  - Specific: file count, format, resolution (4032x4032 if upscale will run, otherwise high resolution), transparent background note if PNG',
-    '',
-    'PARAGRAPH 5 (COMMERCIAL USE - this is GOLD for POD sellers):',
-    '  - Start with: "COMMERCIAL USE:"',
-    '  - State: "Small business commercial use is included! Use these designs for products you sell (up to 500 items per design). Do not resell the files themselves or share them."',
-    '',
-    'PARAGRAPH 6 (instant download call to action):',
-    '  - 1 sentence telling them: purchase, download the file, start creating',
-    '  - Do NOT say ZIP. Do NOT mention country. ',
-    '',
+    'ABSOLUTE RULES:',
+    '- "clipart" appears in 4-5 tags (don\'t over-repeat)',
+    '- "clip art" (with space) in EXACTLY 1 tag (secret weapon, dont stuff)',
+    '- "watercolor" in 2 tags',
+    '- "fantasy clipart" is ALWAYS tag 7 (or position 6-8 if needed)',
+    '- For PNG listings, "png" in 1-2 tags MAX (eg "cat png" + "transparent png")',
+    '- For JPG listings, ZERO format tags - replace with "printable" or "digital download"',
+    '- NEVER duplicate keywords across tags',
+    '- NO tag exactly matches a phrase in the title',
+
+    '=== DESCRIPTION FORMULA (powerful SEO copy) ===',
+
+    'PARAGRAPH 1 (HOOK - first 160 chars are Google snippet, keyword-dense):',
+    '  Pattern: "This set includes {count} high-resolution {vibe} {subject} clipart {format} files featuring {brief design description}."',
+    '  Naturally include: "clipart", subject, vibe, format',
+
+    'PARAGRAPH 2 (VISUAL DESCRIPTION):',
+    '  1-2 sentences describing actual designs, colors, mood, art style. Sensory and evocative.',
+
+    'PARAGRAPH 3 (USE-CASES - SEO POWERHOUSE):',
+    '  Start: "Perfect for:"',
+    '  List 10-12 use-cases comma-separated. MUST include: scrapbooking, junk journals, planner stickers, sublimation, t-shirt designs, mug designs, card making, invitations, nursery wall art, kids decor, gift tags, sticker sheets.',
+
+    'PARAGRAPH 4 (NICHE CONTEXT - cross-category SEO):',
+    '  1 sentence mentioning broader categories the design fits. Use 2-3 of these naturally: fantasy clipart, whimsical art, boho illustrations, cottagecore aesthetic, kawaii designs, watercolor art.',
+    '  Example: "These whimsical illustrations fit beautifully into fantasy clipart collections, boho aesthetic projects, and watercolor art portfolios."',
+
+    'PARAGRAPH 5 (WHAT YOU GET):',
+    '  Start: "WHAT YOU GET:"',
+    '  Specific: file count, format (' + formatToken + '), resolution (4032x4032 if upscale ran, otherwise high resolution), transparent background note if PNG.',
+
+    'PARAGRAPH 6 (COMMERCIAL USE - GOLD for POD sellers):',
+    '  Start: "COMMERCIAL USE:"',
+    '  State: "Small business commercial use is included! Use these designs on physical products you sell (up to 500 items per design). Please do not resell the files themselves or share them as-is."',
+
+    'PARAGRAPH 7 (CTA):',
+    '  1 sentence: purchase, download the file, start creating. Do NOT say ZIP. Do NOT mention country.',
+
     'FINAL LINE: "Files made with AI."',
 
-    'CRITICAL: Naturally use "clipart" 3-4 times in description (across paragraphs, not awkward).',
-    'CRITICAL: ' + formatRule,
+    'DESCRIPTION SEO RULES:',
+    '- Use "clipart" 3-4 times naturally throughout',
+    '- Use the vibe word (whimsical/fantasy/boho/cute/etc) 3-4 times',
+    '- Use "watercolor" 2-3 times',
+    '- ' + formatRule,
+    '- NEVER use "jpg" as a search keyword in description (only mention in WHAT YOU GET section as file format)',
 
     '=== OTHER FIELDS ===',
-    'altBase: 6-10 word SEO-optimized phrase. Include subject + "clipart" + colors + style. Example: "cute watercolor cat clipart whimsical pastel"',
+    'altBase: 6-10 word SEO phrase. Include subject + "clipart" + colors + vibe. Example: "cute watercolor cat clipart whimsical pastel fantasy"',
     'primaryColor: dominant color, EXACTLY ONE from: ' + colorList + '.',
     'secondaryColor: second dominant, EXACTLY ONE different from: ' + colorList + '.',
-    'artSubject: EXACTLY ONE from: ' + subjectList + '. Cats/dogs/animals=Animal. Flowers=Flowers. Mystical/dragons/unicorns=Fantasy and Sci Fi.',
-    'occasion: ONE from: ' + occasionList + '. Use none unless designs DEFINITIVELY target that occasion.',
-    'holiday: ONE from: ' + holidayList + '. Use none unless designs DEFINITIVELY are that holiday.',
+    'artSubject: EXACTLY ONE from: ' + subjectList + '. Cats/dogs/animals=Animal. Flowers=Flowers. Mystical=Fantasy and Sci Fi.',
+    'occasion: ONE from: ' + occasionList + '. Use none unless DEFINITIVELY targeting occasion.',
+    'holiday: ONE from: ' + holidayList + '. Use none unless DEFINITIVELY that holiday.',
   ].join('\n');
 
   const userMsg = [
@@ -154,12 +170,18 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     '',
     'YOUR TASK:',
     '1. Identify the MAIN SUBJECT (one word: cat, flower, girl, dragon, etc.)',
-    '2. Identify the STYLE VIBE (one word: cute, whimsical, fantasy, boho, cottagecore, kawaii, vintage, magical, dreamy)',
-    '3. Build the most aggressive Etsy SEO that would push this listing to bestseller in its category',
-    '4. Hit all 4 buyer personas (crafter mom, POD seller, hobby artist, party planner) with different keywords',
-    '5. Follow ALL the rules above with zero compromises',
+    '2. Identify the VIBE/STYLE (one word: cute, whimsical, fantasy, boho, cottagecore, kawaii, vintage, magical, dreamy, wildflower)',
+    '3. Hit ALL 4 buyer personas with different keyword angles',
+    '4. Follow ALL the tag and description rules with ZERO compromise',
+    '5. Make this listing UNSTOPPABLE - bestseller-tier SEO',
     '',
-    'Return JSON now. Make this listing UNSTOPPABLE.',
+    'CRITICAL REMINDERS:',
+    '- NO "jpg" anywhere in tags (buyers dont search this way)',
+    '- "clip art" (with space) in exactly 1 tag (secret weapon)',
+    '- "fantasy clipart" MUST be a tag',
+    '- Use vibe word everywhere (title, tags, description)',
+    '',
+    'Return JSON now.',
   ].join('\n');
 
   const res = await fetch(ANTHROPIC_API, {
@@ -171,7 +193,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2200,
+      max_tokens: 2500,
       system: rules,
       messages: [{ role: 'user', content: userMsg }],
     }),
@@ -201,18 +223,34 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   if (parsed.title.length > 140) parsed.title = parsed.title.slice(0, 140);
 
   if (!Array.isArray(parsed.tags)) parsed.tags = [];
+
+  // Strip "jpg" related tags - buyer NEVER searches this
+  const blockedTagPatterns = [
+    /\bjpg\b/i,
+    /\bjpeg\b/i,
+  ];
+
   const cleanTags: string[] = [];
   for (const t of parsed.tags) {
     const tag = String(t).trim().toLowerCase();
-    if (tag.length > 0 && tag.length <= 20 && cleanTags.indexOf(tag) === -1) {
-      cleanTags.push(tag);
+    if (tag.length === 0 || tag.length > 20) continue;
+    if (blockedTagPatterns.some((p) => p.test(tag))) continue;
+    if (cleanTags.indexOf(tag) !== -1) continue;
+    cleanTags.push(tag);
+  }
+
+  // Safety net: ensure required tags exist
+  const requiredTags = ['fantasy clipart', 'watercolor clipart'];
+  for (const required of requiredTags) {
+    if (cleanTags.indexOf(required) === -1 && cleanTags.length < 13) {
+      cleanTags.push(required);
     }
   }
 
-  // Safety net: ensure clipart appears in enough tags
+  // Fill remaining with smart fallback (no "jpg")
   const fillers = pngBoost
-    ? ['clipart', 'watercolor clipart', 'png clipart', 'digital download', 'junk journal', 'sublimation png', 'scrapbook clipart', 'craft supply']
-    : ['clipart', 'watercolor clipart', 'jpg clipart', 'digital download', 'junk journal', 'printable art', 'scrapbook clipart', 'craft supply'];
+    ? ['clipart', 'whimsical clipart', 'png clipart', 'digital download', 'junk journal', 'sublimation png', 'scrapbook supplies', 'craft supply']
+    : ['clipart', 'whimsical clipart', 'printable art', 'digital download', 'junk journal', 'scrapbook supplies', 'card making', 'craft supply'];
   let fi = 0;
   while (cleanTags.length < 13 && fi < fillers.length) {
     if (cleanTags.indexOf(fillers[fi]) === -1) cleanTags.push(fillers[fi]);
