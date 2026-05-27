@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-type FormulaKey = 'quirky' | 'wordart' | 'artistic_woman' | 'praying' | 'ephemera' | 'birthday_girl' | 'gestural' | 'viral_western';
+type FormulaKey = 'quirky' | 'wordart' | 'artistic_woman' | 'praying' | 'ephemera' | 'birthday_girl' | 'line_art_bw' | 'line_art_accent' | 'line_art_wash' | 'viral_western';
 
 const FORMULAS: Record<FormulaKey, { name: string; icon: string; placeholder: string; description: string }> = {
   quirky: { name: 'Quirky Animal', icon: '🐱', placeholder: 'cat, owl, highland cow, fox...', description: 'Komik hayvan + glossy eyes + deadpan + boots' },
@@ -11,7 +11,9 @@ const FORMULAS: Record<FormulaKey, { name: string; icon: string; placeholder: st
   praying: { name: 'Praying Woman', icon: '🙏', placeholder: 'Black woman, woman, African American woman...', description: 'Dua pozları + maneviyat + ışık' },
   ephemera: { name: 'Ephemera (Junk Journal)', icon: '📜', placeholder: 'vintage, botanical, gothic, floral, travel, purple...', description: 'Sheet veya tek öğe kit' },
   birthday_girl: { name: 'Birthday Girl (Glam)', icon: '🎂', placeholder: 'Parisian, modern, vintage, boho...', description: 'Fashion illustration + kutlama pozları' },
-  gestural: { name: 'Gestural Figure (Minimal)', icon: '🖤', placeholder: 'dancing, stretching, ballerina, walking...', description: 'Soyut hareket + minimal siyah mürekkep' },
+  line_art_bw: { name: 'Line Art — Pure B&W', icon: '🖋️', placeholder: 'highland cow, eye, peeking cat, floral skull... (veya boş bırak)', description: 'Sketchy siyah mürekkep, tek tip line, monokrom' },
+  line_art_accent: { name: 'Line Art — Accent', icon: '✒️', placeholder: 'highland cow, moon hand, owl... (veya boş bırak)', description: 'Siyah line + tek vurgu rengi (altın/kırmızı)' },
+  line_art_wash: { name: 'Line Art — Watercolor Wash', icon: '🎐', placeholder: 'highland cow, fairy, mushroom... (veya boş bırak)', description: 'Siyah çizgi + yumuşak suluboya leke' },
   viral_western: { name: 'Viral Western', icon: '🤠', placeholder: 'goat, highland cow, frog, raccoon...', description: 'Komik hayvan + slogan + checkerboard' },
 };
 
@@ -81,13 +83,37 @@ const BIRTHDAY_POSES = [
   'happily holding a stack of beautifully wrapped gift boxes',
 ];
 
-const GESTURAL_POSES = [
-  'in a graceful dancing motion',
-  'reaching and stretching upward in motion',
-  'twisting and spinning in dynamic motion',
-  'seated and curled in a quiet pose',
-  'walking with flowing fabric in motion',
-  'in a delicate ballerina arabesque motion',
+// === LINE ART KONU HAVUZLARI ===
+const LINE_ART_SUBJECTS = [
+  // Mystical Symbols
+  'a single mystical floating eye surrounded by delicate moths and a crescent moon',
+  'an open hand holding a tiny crescent moon with botanical sprigs around it',
+  'a coiled serpent intertwined with blooming wildflowers',
+  'a butterfly with delicate botanical wings and tiny stars',
+  'an ornate vintage key wrapped in ivy and tiny flowers',
+  'a tarot card style frame with sun moon and stars inside',
+  // Whimsical Creatures
+  'a tiny peeking cat hiding behind a tall wildflower',
+  'a sleepy owl perched on a thin branch with hanging leaves',
+  'a small curled fox surrounded by tiny mushrooms',
+  'a friendly dragon with a flower in its mouth',
+  'a gentle mermaid floating with seaweed and small fish',
+  'a quiet fairy sitting on a mushroom holding a tiny lantern',
+  'a whimsical highland cow with tiny horns standing in tall wildflowers',
+  // Botanical Fantasy
+  'a woman\'s profile with blooming flowers growing out of her hair',
+  'a hand emerging from soil with ivy wrapping around the fingers',
+  'a tiny mushroom house with a winding path and floating leaves',
+  'a vase overflowing with abstract wildflowers and one peeking eye',
+  'a deer with antlers sprouting blooming branches and tiny birds',
+  'a moon cradling a small flower bouquet with falling petals',
+];
+
+const ACCENT_COLORS = [
+  'soft muted gold',
+  'dusty terracotta red',
+  'pale blush pink',
+  'sage green',
 ];
 
 const VIRAL_WESTERN_COMBOS = [
@@ -114,11 +140,12 @@ const EPHEMERA_THEMES: Record<string, { items: string; color: string }> = {
 
 const CUTOFF = 'fully contained within the frame with generous white margin, nothing cropped, centered, isolated on clean white background';
 const CUTOFF_ARTISTIC = 'the entire artwork is small and fully centered on a large white canvas with wide empty margins on all sides, nothing touching or crossing the edges, complete uncropped composition';
+const CUTOFF_LINE = 'the entire small artwork fully centered on a large white canvas with wide empty margins, nothing touching or crossing the edges, complete uncropped composition';
 
 function buildQuirky(input: string): string[] {
   const animal = input.trim() || 'cat';
   const hornsAddon = animal.toLowerCase().includes('cow') ? ' and tiny horns' : '';
-  return QUIRKY_POSES.map(pose => 
+  return QUIRKY_POSES.map(pose =>
     'full body of a cute cartoon-style fluffy ' + animal + ' character with oversized glossy eyes' + hornsAddon + ', wearing a fur outfit and leather boots with daisies on the shoes, in a soft pink and sage color scheme, very detailed and textured, high resolution, full body shot, in the style of Pixar, ' + pose + ' while staring deadpan, ' + CUTOFF + ' --ar 1:1 --raw'
   );
 }
@@ -155,7 +182,7 @@ function buildEphemera(input: string): string[] {
   const data = EPHEMERA_THEMES[theme] || EPHEMERA_THEMES.vintage;
   return [
     'a ' + theme + ' ephemera collage sheet with 16 assorted small separate elements neatly arranged with gaps between them: ' + data.items + ', muted ' + data.color + ' tones, hand-painted watercolor and ink, naive vintage scrapbook style, aged paper texture, complete sheet fully visible with white margins around all edges, nothing cropped, isolated on clean white background --ar 1:1 --raw'
-  ];
+    ];
 }
 
 function buildBirthdayGirl(input: string): string[] {
@@ -165,15 +192,42 @@ function buildBirthdayGirl(input: string): string[] {
   );
 }
 
-function buildGestural(input: string): string[] {
-  const customMotion = input.trim();
-  if (customMotion) {
+// === 3 LINE ART BUILDER ===
+
+function buildLineArtBW(input: string): string[] {
+  const custom = input.trim();
+  if (custom) {
     return [
-      'a small minimal sketch centered with lots of empty white space, sketchy watercolor and ink line art drawing of an abstract woman\'s body ' + customMotion + ', tiny figure captured in fast loose gestural lines, single continuous black ink strokes with a hint of soft watercolor wash, expressive movement and energy, artistic and minimal, hand-drawn not digital, the entire small artwork fully centered on a large white canvas with wide empty margins, nothing touching or crossing the edges --ar 1:1 --raw --s 150'
+      'sketchy line art drawing of whimsical ' + custom + ', abstracted in fast gestural lines, tiny body in motion, pure black ink on white background, no color, single weight line, monochrome ink sketch, hand-drawn storybook feel, ' + CUTOFF_LINE + ' --ar 1:1 --s 250 (sketches)'
     ];
   }
-  return GESTURAL_POSES.map(m =>
-    'a small minimal sketch centered with lots of empty white space, sketchy watercolor and ink line art drawing of an abstract woman\'s body ' + m + ', tiny figure captured in fast loose gestural lines, single continuous black ink strokes with a hint of soft watercolor wash, expressive movement and energy, artistic and minimal, hand-drawn not digital, the entire small artwork fully centered on a large white canvas with wide empty margins, nothing touching or crossing the edges --ar 1:1 --raw --s 150'
+  return LINE_ART_SUBJECTS.map(s =>
+    'sketchy line art drawing of whimsical ' + s + ', abstracted in fast gestural lines, tiny body in motion, pure black ink on white background, no color, single weight line, monochrome ink sketch, hand-drawn storybook feel, ' + CUTOFF_LINE + ' --ar 1:1 --s 250 (sketches)'
+  );
+}
+
+function buildLineArtAccent(input: string): string[] {
+  const custom = input.trim();
+  if (custom) {
+    return ACCENT_COLORS.map(c =>
+      'sketchy line art drawing of whimsical ' + custom + ', abstracted in fast gestural lines, tiny body in motion, black ink on white background with a single ' + c + ' accent only, mostly monochrome, hand-drawn storybook feel, ' + CUTOFF_LINE + ' --ar 1:1 --s 250 (sketches)'
+    );
+  }
+  return LINE_ART_SUBJECTS.map((s, i) => {
+    const c = ACCENT_COLORS[i % ACCENT_COLORS.length];
+    return 'sketchy line art drawing of whimsical ' + s + ', abstracted in fast gestural lines, tiny body in motion, black ink on white background with a single ' + c + ' accent only, mostly monochrome, hand-drawn storybook feel, ' + CUTOFF_LINE + ' --ar 1:1 --s 250 (sketches)';
+  });
+}
+
+function buildLineArtWash(input: string): string[] {
+  const custom = input.trim();
+  if (custom) {
+    return [
+      'sketchy watercolor line art drawing of whimsical ' + custom + ', abstracted in fast gestural lines, tiny body in motion, black ink on white background, soft dusty pastel watercolor wash bleeding behind the line work, ink and watercolor mixed media, hand-drawn storybook feel, ' + CUTOFF_LINE + ' --ar 1:1 --s 250 (sketches)'
+    ];
+  }
+  return LINE_ART_SUBJECTS.map(s =>
+    'sketchy watercolor line art drawing of whimsical ' + s + ', abstracted in fast gestural lines, tiny body in motion, black ink on white background, soft dusty pastel watercolor wash bleeding behind the line work, ink and watercolor mixed media, hand-drawn storybook feel, ' + CUTOFF_LINE + ' --ar 1:1 --s 250 (sketches)'
   );
 }
 
@@ -197,7 +251,9 @@ const BUILDERS: Record<FormulaKey, (input: string) => string[]> = {
   praying: buildPraying,
   ephemera: buildEphemera,
   birthday_girl: buildBirthdayGirl,
-  gestural: buildGestural,
+  line_art_bw: buildLineArtBW,
+  line_art_accent: buildLineArtAccent,
+  line_art_wash: buildLineArtWash,
   viral_western: buildViralWestern,
 };
 
@@ -241,7 +297,7 @@ export default function PromptGeneratorPage() {
 
         <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-ink/5 mb-6">
           <label className="block text-sm font-medium text-ink mb-3">1. Tarz seç</label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
             {(Object.keys(FORMULAS) as FormulaKey[]).map(key => {
               const f = FORMULAS[key];
               const isActive = formula === key;
