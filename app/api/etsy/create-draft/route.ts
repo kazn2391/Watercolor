@@ -200,6 +200,7 @@ export async function POST(req: Request) {
   let generatePng = false;
   let upscaleImages = false;
   let shopKey: string = 'shop1';
+  let productType: 'auto' | 'line_art' = 'auto';
   try {
     const bodyJson = await req.json();
     driveUrl = bodyJson.driveUrl || '';
@@ -207,6 +208,8 @@ export async function POST(req: Request) {
     upscaleImages = bodyJson.upscaleImages === true;
     // shop1 (SuzyFlowArt, default) veya shop2 (SuzyCardPrints)
     shopKey = bodyJson.shopKey === 'shop2' ? 'shop2' : 'shop1';
+    // 'line_art' SuzyCardPrints line art clipart icin, default 'auto'
+    productType = bodyJson.productType === 'line_art' ? 'line_art' : 'auto';
   } catch (e) {
     return NextResponse.json({ error: 'driveUrl gerekli' }, { status: 400 });
   }
@@ -220,7 +223,8 @@ export async function POST(req: Request) {
 
   try {
     const shopLabel = shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt';
-    steps.push('[' + elapsed() + '] Shop: ' + shopLabel);
+    const productLabel = productType === 'line_art' ? 'Line Art' : 'Auto';
+    steps.push('[' + elapsed() + '] Shop: ' + shopLabel + ' | Tip: ' + productLabel);
 
     steps.push('[' + elapsed() + '] Drive klasoru okunuyor');
     const folder = await readDriveFolder(driveUrl);
@@ -350,6 +354,7 @@ export async function POST(req: Request) {
       hasJpg: folder.hasJpg,
       hasPngSubfolder: finalHasPngSubfolder,
       folderNumber,
+      productType,
     });
     steps.push('[' + elapsed() + '] SEO uretildi: ' + seo.title.slice(0, 55));
 
