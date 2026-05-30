@@ -4,6 +4,7 @@ export default function EtsyAdminPanel() {
   const [password, setPassword] = useState('');
   const [driveUrl, setDriveUrl] = useState('');
   const [shopKey, setShopKey] = useState('shop1');
+  const [productType, setProductType] = useState('auto');
   const [generatePng, setGeneratePng] = useState(false);
   const [upscaleImages, setUpscaleImages] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,7 @@ export default function EtsyAdminPanel() {
       const res = await fetch('/api/etsy/create-draft?key=' + encodeURIComponent(password), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driveUrl, generatePng, upscaleImages, shopKey }),
+        body: JSON.stringify({ driveUrl, generatePng, upscaleImages, shopKey, productType }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -60,6 +61,21 @@ export default function EtsyAdminPanel() {
       >
         <option value="shop1">SuzyFlowArt</option>
         <option value="shop2">SuzyCardPrints</option>
+      </select>
+
+      <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: '#666' }}>
+        Urun Tipi
+      </label>
+      <select
+        value={productType}
+        onChange={(e) => setProductType(e.target.value)}
+        style={{
+          width: '100%', padding: 10, marginBottom: 16, border: '1px solid #ddd',
+          borderRadius: 8, fontSize: 14, background: 'white', cursor: 'pointer',
+        }}
+      >
+        <option value="auto">Otomatik (Watercolor / Sublimation)</option>
+        <option value="line_art">Line Art Clipart (Tattoo / Junk Journal)</option>
       </select>
 
       <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: '#666' }}>
