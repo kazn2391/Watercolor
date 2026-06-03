@@ -20,11 +20,9 @@ import {
   createDraftListing,
   uploadListingImage,
   uploadListingFile,
-  uploadListingVideo,
   findClipArtTaxonomyId,
   updateListingProperty,
 } from '@/lib/etsy-listing';
-import { generateListingVideo } from '@/lib/video-generator';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -202,7 +200,6 @@ export async function POST(req: Request) {
   let upscaleImages = false;
   let shopKey: string = 'shop1';
   let productType: 'auto' | 'line_art' = 'auto';
-  let generateVideo = false;
   try {
     const bodyJson = await req.json();
     driveUrl = bodyJson.driveUrl || '';
@@ -210,7 +207,6 @@ export async function POST(req: Request) {
     upscaleImages = bodyJson.upscaleImages === true;
     shopKey = bodyJson.shopKey === 'shop2' ? 'shop2' : 'shop1';
     productType = bodyJson.productType === 'line_art' ? 'line_art' : 'auto';
-    generateVideo = bodyJson.generateVideo === true;
   } catch (e) {
     return NextResponse.json({ error: 'driveUrl gerekli' }, { status: 400 });
   }
@@ -225,7 +221,7 @@ export async function POST(req: Request) {
   try {
     const shopLabel = shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt';
     const productLabel = productType === 'line_art' ? 'Line Art' : 'Auto';
-    steps.push('[' + elapsed() + '] Shop: ' + shopLabel + ' | Tip: ' + productLabel + (generateVideo ? ' | Video: ON' : ''));
+    steps.push('[' + elapsed() + '] Shop: ' + shopLabel + ' | Tip: ' + productLabel);
 
     steps.push('[' + elapsed() + '] Drive klasoru okunuyor');
     const folder = await readDriveFolder(driveUrl);
@@ -536,54 +532,6 @@ export async function POST(req: Request) {
       }
       if (etsyErrors.length > 3) {
         steps.push('  - ... ve ' + (etsyErrors.length - 3) + ' hata daha');
-      }
-    }
-
-    // ===== VIDEO OLUSTUR VE YUKLE =====
-    if (generateVideo) {
-      try {
-        steps.push('[' + elapsed() + '] Video uretiliyor (10 sn slideshow)');
-
-        // 8 image lazim (4 slide x 2 image). Buffer'lardan ilk 8 sagliklisini al.
-        const videoImageBuffers: Buffer[] = [];
-        for (let i = 0; i < allImageBuffers.length && videoImageBuffers.length < 8; i++) {
-          const b = upscaleApplied && upscaledBuffers[i] ? upscaledBuffers[i] : allImageBuffers[i];
-          if (b) videoImageBuffers.push(b);
-        }
-
-        // 8 yetmiyorsa, mevcutlari tekrar et
-        while (videoImageBuffers.length < 8 && videoImageBuffers.length > 0) {
-          videoImageBuffers.push(videoImageBuffers[videoImageBuffers.length % Math.max(1, videoImageBuffers.length)]);
-        }
-
-        if (videoImageBuffers.length < 8) {
-          throw new Error('Video icin yeterli image yok (' + videoImageBuffers.length + '/8)');
-        }
-
-        const tagline = productType === 'line_art'
-          ? 'Whimsical Line Art Fantasy'
-          : 'Watercolor Clipart Collection';
-
-        const slideTexts = [
-          folder.imageCount + '+ Premium Designs',
-          'Commercial Use Included',
-          'Perfect for Cards & Crafts',
-          'Instant Digital Download',
-        ];
-
-        const videoBuf = await generateListingVideo({
-          imageBuffers: videoImageBuffers,
-          shopLabel: shopLabel,
-          shopTagline: tagline,
-          slideTexts: slideTexts,
-        });
-
-        steps.push('[' + elapsed() + '] Video uretildi: ' + Math.round(videoBuf.length / 1024) + ' KB');
-
-        await uploadListingVideo(listingId, videoBuf, shopKey);
-        steps.push('[' + elapsed() + '] Video Etsy\'ye yuklendi');
-      } catch (videoErr: any) {
-        steps.push('Video HATASI: ' + (videoErr.message || 'bilinmeyen').slice(0, 200));
       }
     }
 
