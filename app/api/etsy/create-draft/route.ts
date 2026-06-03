@@ -20,6 +20,7 @@ import {
   createDraftListing,
   uploadListingImage,
   uploadListingFile,
+  uploadListingVideo,
   findClipArtTaxonomyId,
   updateListingProperty,
 } from '@/lib/etsy-listing';
@@ -28,6 +29,10 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+
+// Supabase Storage URL'leri - hem SuzyFlow hem SuzyCard icin ayni dosyalar
+const BONUS_IMAGE_URL = 'https://qugrildnvbvrtxcltefy.supabase.co/storage/v1/object/public/etsy-videos/suzypic.jpg';
+const VIDEO_URL = 'https://qugrildnvbvrtxcltefy.supabase.co/storage/v1/object/public/etsy-videos/suzyflow.mp4';
 
 const PROP_CRAFT = 47626759760;
 const PROP_PRIMARY_COLOR = 200;
@@ -105,6 +110,15 @@ async function processBatch<T, R>(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchBufferFromUrl(url: string): Promise<Buffer> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error('URL fetch failed: ' + res.status + ' ' + url.slice(0, 80));
+  }
+  const arrayBuf = await res.arrayBuffer();
+  return Buffer.from(arrayBuf);
 }
 
 async function describeImageBuffer(buf: Buffer): Promise<string> {
@@ -533,6 +547,31 @@ export async function POST(req: Request) {
       if (etsyErrors.length > 3) {
         steps.push('  - ... ve ' + (etsyErrors.length - 3) + ' hata daha');
       }
+    }
+
+    // ===== 11. RESIM: BONUS PACK GORSEL =====
+    try {
+      const bonusImgBuf = await fetchBufferFromUrl(BONUS_IMAGE_URL);
+      const bonusAlt = '100 plus bonus pack included free gift watercolor clipart designs';
+      const bonusResult = await uploadListingImageWithRetry(listingId, bonusImgBuf, 11, bonusAlt, shopKey, 3);
+      if (bonusResult.success) {
+        steps.push('[' + elapsed() + '] 11. resim (Bonus Pack) yuklendi');
+      } else {
+        steps.push('11. resim HATASI: ' + bonusResult.error);
+      }
+    } catch (bonusErr: any) {
+      steps.push('11. resim fetch HATASI: ' + (bonusErr.message || 'bilinmeyen').slice(0, 150));
+    }
+
+    // ===== VIDEO YUKLE =====
+    try {
+      steps.push('[' + elapsed() + '] Video indiriliyor');
+      const videoBuf = await fetchBufferFromUrl(VIDEO_URL);
+      steps.push('[' + elapsed() + '] Video indirildi: ' + Math.round(videoBuf.length / 1024) + ' KB');
+      await uploadListingVideo(listingId, videoBuf, 'listing-video.mp4', shopKey);
+      steps.push('[' + elapsed() + '] Video Etsy\'ye yuklendi');
+    } catch (videoErr: any) {
+      steps.push('Video HATASI: ' + (videoErr.message || 'bilinmeyen').slice(0, 200));
     }
 
     const db = supabaseAdmin();
