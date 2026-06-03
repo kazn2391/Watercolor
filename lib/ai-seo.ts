@@ -23,6 +23,14 @@ export interface SeoOutput {
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
+const BONUS_GIFT_NOTE = [
+  '',
+  '─────────────────────────',
+  '🎁 SPECIAL BONUS GIFT',
+  'As a thank you for supporting our small studio, every order includes a FREE bonus pack of 100+ additional designs - automatically delivered with your bundle. A little something from our hearts to yours 🤍',
+  '─────────────────────────',
+].join('\n');
+
 function buildWholeShopNote(folderNumber: string): string {
   return [
     '',
@@ -47,9 +55,6 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     ? 'PNG files with transparent background in separate Png folder. Emphasize: transparent PNG, no white box, perfect for layering on any project. Mention JPG also included.'
     : 'High-resolution printable JPG clipart files, ready to print at home or by professional services. Do NOT mention PNG or transparent background. Emphasize "printable" as a keyword.';
 
-  // ============================================================
-  // LINE ART MODE - mevcut rules'i bozmadan vibe/tag/use-case adapte eder
-  // ============================================================
   const lineArtVibeOverride = isLineArt
     ? 'CRITICAL LINE ART MODE OVERRIDE: This is a LINE ART / ink illustration bundle, NOT watercolor. ' +
       'Use vibe words from: Whimsical, Minimalist, Sketchy, Hand-Drawn, Fine Line, Boho, Mystical, Cute, Delicate, Tattoo Flash. ' +
@@ -281,7 +286,6 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     /\bjpeg\b/i,
   ];
 
-  // Line art mode: ayrıca watercolor tag'lerini de blokla
   const lineArtBlockedPatterns = isLineArt ? [/\bwatercolor\b/i] : [];
 
   const cleanTags: string[] = [];
@@ -294,7 +298,6 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     cleanTags.push(tag);
   }
 
-  // Safety net: ensure required tags exist (productType'a göre değişir)
   const requiredTags = isLineArt
     ? ['line art clipart', 'ink illustration']
     : ['fantasy clipart', 'watercolor clipart'];
@@ -304,7 +307,6 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     }
   }
 
-  // Fill remaining with smart fallback
   const fillers = isLineArt
     ? ['line art', 'minimalist clipart', 'hand drawn art', 'tattoo design', 'junk journal', 'fineline tattoo', 'sticker sheet', 'card making']
     : pngBoost
@@ -320,8 +322,12 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
 
   if (typeof parsed.description !== 'string') parsed.description = '';
 
+  // BONUS GIFT mesajini description sonuna ekle
+  parsed.description = parsed.description.trimEnd() + '\n' + BONUS_GIFT_NOTE;
+
+  // Whole shop notu (varsa) en sona
   if (input.folderNumber && input.folderNumber.length > 0) {
-    parsed.description = parsed.description.trimEnd() + '\n\n' + buildWholeShopNote(input.folderNumber);
+    parsed.description = parsed.description.trimEnd() + '\n' + buildWholeShopNote(input.folderNumber);
   }
 
   if (typeof parsed.altBase !== 'string' || parsed.altBase.length === 0) {
