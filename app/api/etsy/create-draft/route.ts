@@ -386,19 +386,32 @@ export async function POST(req: Request) {
           if (allImageBuffers[i]) validBuffers.push({ buf: allImageBuffers[i], idx: i });
         }
 
+        const upscaleErrors: string[] = [];
         const upscaleBatch = await processBatch(
           validBuffers,
           5,
           async (item) => {
-            const bigBuf = await upscaleToJpeg(item.buf);
-            upscaledBuffers[item.idx] = bigBuf;
-            const newName = baseName + (item.idx + 1) + '.jpg';
-            await oauthUploadFileToDrive(parentFolderId, newName, bigBuf, 'image/jpeg');
-            return true;
+            try {
+              const bigBuf = await upscaleToJpeg(item.buf);
+              upscaledBuffers[item.idx] = bigBuf;
+              const newName = baseName + (item.idx + 1) + '.jpg';
+              await oauthUploadFileToDrive(parentFolderId, newName, bigBuf, 'image/jpeg');
+              return true;
+            } catch (itemErr: any) {
+              const msg = (itemErr.message || 'bilinmeyen').slice(0, 200);
+              upscaleErrors.push('idx=' + item.idx + ' ' + msg);
+              throw itemErr;
+            }
           }
         );
         const upscaleSuccessCount = upscaleBatch.results.filter((r) => r === true).length;
         steps.push('[' + elapsed() + '] Upscale sonuc: ' + upscaleSuccessCount + ' basarili, ' + upscaleBatch.errors + ' hatali');
+        for (let ei = 0; ei < Math.min(3, upscaleErrors.length); ei++) {
+          steps.push('  - ' + upscaleErrors[ei]);
+        }
+        if (upscaleErrors.length > 3) {
+          steps.push('  - ... ve ' + (upscaleErrors.length - 3) + ' hata daha');
+        }
 
         if (upscaleSuccessCount === validBuffers.length) {
           try {
