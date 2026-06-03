@@ -180,3 +180,35 @@ export async function uploadListingFile(
     throw new Error('PDF yuklenemedi: ' + t.slice(0, 200));
   }
 }
+
+export async function uploadListingVideo(
+  listingId: number,
+  videoBuffer: Buffer,
+  fileName: string,
+  shopKey: string = 'shop1'
+): Promise<void> {
+  const token = await getValidEtsyToken(shopKey);
+  const shopId = getEtsyShopId(shopKey);
+
+  const form = new FormData();
+  const bytes = new Uint8Array(videoBuffer);
+  const blob = new Blob([bytes], { type: 'video/mp4' });
+  form.append('video', blob, fileName);
+  form.append('name', fileName);
+
+  const res = await fetch(
+    ETSY_API + '/shops/' + shopId + '/listings/' + listingId + '/videos',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'x-api-key': getEtsyApiKeyHeader(),
+      },
+      body: form,
+    }
+  );
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error('Video yuklenemedi: ' + t.slice(0, 200));
+  }
+}
