@@ -31,6 +31,14 @@ const BONUS_GIFT_NOTE = [
   '─────────────────────────',
 ].join('\n');
 
+const AI_DISCLOSURE_NOTE = [
+  '',
+  '─────────────────────────',
+  '🎨 AI-ASSISTED DESIGN DISCLOSURE',
+  'These artworks were created with the assistance of Artificial Intelligence (AI) generation tools. As the designer, I direct the creative process: I choose the concepts, style direction, color palettes, and curate the final selections. Each design is reviewed, refined, and prepared by me for commercial-quality download. Designed by seller using AI generators.',
+  '─────────────────────────',
+].join('\n');
+
 function buildWholeShopNote(folderNumber: string): string {
   return [
     '',
@@ -188,10 +196,10 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     '  Start: "COMMERCIAL USE:"',
     '  State: "Small business commercial use is included! Use these designs on physical products you sell (up to 500 items per design). Please do not resell the files themselves or share them as-is."',
 
-    'PARAGRAPH 7 (CTA):',
+    'PARAGRAPH 7 (CTA - FINAL paragraph of YOUR output):',
     '  1 sentence: purchase, download the file, start creating. Do NOT say ZIP. Do NOT mention country.',
 
-    'FINAL LINE: "Files made with AI."',
+    'IMPORTANT: Do NOT add any AI disclosure or "Files made with AI" line - this is appended automatically by the system after your output. End your description after the CTA paragraph.',
 
     'DESCRIPTION SEO RULES:',
     isLineArt
@@ -237,6 +245,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
       ? '- "line art clipart" MUST be a tag\n- NEVER use "watercolor" anywhere'
       : '- "fantasy clipart" MUST be a tag',
     '- Use vibe word everywhere (title, tags, description)',
+    '- End description after CTA - do NOT add AI disclosure (system adds it)',
     '',
     'Return JSON now.',
   ].filter((line) => line.length > 0).join('\n');
@@ -322,10 +331,13 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
 
   if (typeof parsed.description !== 'string') parsed.description = '';
 
-  // BONUS GIFT mesajini description sonuna ekle
+  // 1. AI Disclosure (Etsy 2026 Creativity Standards compliance)
+  parsed.description = parsed.description.trimEnd() + '\n' + AI_DISCLOSURE_NOTE;
+
+  // 2. Bonus Gift mesaji
   parsed.description = parsed.description.trimEnd() + '\n' + BONUS_GIFT_NOTE;
 
-  // Whole shop notu (varsa) en sona
+  // 3. Whole shop notu (varsa) en sona
   if (input.folderNumber && input.folderNumber.length > 0) {
     parsed.description = parsed.description.trimEnd() + '\n' + buildWholeShopNote(input.folderNumber);
   }
