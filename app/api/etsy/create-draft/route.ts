@@ -340,9 +340,7 @@ export async function POST(req: Request) {
           5,
           async (item) => {
             const pngBuf = await removeBackground(item.buf);
-            const originalName = folder.images[item.idx] ? folder.images[item.idx].name : 'image' + (item.idx + 1);
-            const baseName = originalName.replace(/\.(jpg|jpeg|png)$/i, '');
-            const pngName = baseName + '.png';
+            const pngName = 'png' + (item.idx + 1) + '.png';
             await oauthUploadFileToDrive(pngFolderId, pngName, pngBuf, 'image/png');
             return true;
           }
