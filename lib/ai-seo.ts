@@ -110,7 +110,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     'Slot 1 (3-5 words, MOST IMPORTANT): {number} {Vibe} {Subject} Clipart {Format}',
     isLineArt
       ? '  - "Vibe" = Whimsical/Minimalist/Sketchy/Hand-Drawn/Fine Line/Boho/Mystical/Cute'
-      : '  - "Vibe" = Cute/Whimsical/Fantasy/Boho/Quirky/Kawaii/Vintage/Magical/Wildflower',
+      : '  - "Vibe" = pick ONE from this list based on the actual designs you see: Whimsical, Cute, Boho, Cottagecore, Magical, Dreamy, Wildflower, Kawaii, Vintage, Fantasy, Quirky. CHOOSE THE BEST FIT, not the first one. Most designs are WHIMSICAL.',
     '  - "Format" = "' + formatToken + '"',
     '  - MUST start with a NUMBER (count of items: 20, 30, 150, etc.)',
     isLineArt
@@ -127,7 +127,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     '',
     'EXAMPLES of CORRECT (13 words or less):',
     '- "20 Whimsical Cat Clipart PNG | Watercolor Kitten Design | Scrapbook Crafts" = 11 words ✓',
-    '- "30 Quirky Highland Cow Clipart JPG | Watercolor Folk Art | Junk Journal" = 12 words ✓',
+    '- "30 Boho Highland Cow Clipart JPG | Watercolor Folk Art | Junk Journal" = 12 words ✓',
     '- "100 Happy Birthday Clipart Bundle | Watercolor Whimsical Cake | Card Crafts" = 11 words ✓',
     '',
     'EXAMPLES of WRONG (over 13 words):',
@@ -145,7 +145,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     '- MUST start with a number (the design count)',
     '- "Clipart" MUST appear in Slot 1',
     '- "Watercolor" MUST appear somewhere in title (mandatory keyword)',
-    '- A vibe modifier MUST appear (Whimsical/Quirky/Cute/Fantasy/Boho/etc)',
+    '- A vibe modifier MUST appear (Whimsical/Cute/Boho/Magical/etc - default Whimsical)',
     '- Format ("' + formatToken + '") MUST appear in Slot 1',
     isLineArt ? '- "Line Art" or "Line" or "Ink" MUST appear somewhere in title.' : '',
     '- HARD LIMIT: 13 words max, 130 chars max',
@@ -227,7 +227,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     'DESCRIPTION SEO RULES:',
     isLineArt
       ? '- Use "line art" 3-4 times naturally throughout\n- Use the vibe word (whimsical/minimalist/sketchy/etc) 3-4 times\n- Use "ink illustration" or "hand drawn" 2-3 times\n- NEVER use "watercolor" (wrong product)'
-      : '- Use "clipart" 3-4 times naturally throughout\n- Use the vibe word (whimsical/fantasy/boho/cute/etc) 3-4 times\n- Use "watercolor" 2-3 times',
+      : '- Use "clipart" 3-4 times naturally throughout\n- Use the vibe word (whimsical/boho/cute/etc) 3-4 times - DEFAULT is whimsical\n- Use "watercolor" 2-3 times',
     '- ' + formatRule,
     '- NEVER use "jpg" as a search keyword in description (only mention in WHAT YOU GET section as file format)',
 
@@ -256,7 +256,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     '1. Identify the MAIN SUBJECT (one word: cat, flower, girl, dragon, etc.)',
     isLineArt
       ? '2. Identify the VIBE/STYLE (one word: whimsical, minimalist, sketchy, fine line, boho, mystical, cute, delicate)'
-      : '2. Identify the VIBE/STYLE (one word: cute, whimsical, fantasy, boho, quirky, kawaii, vintage, magical, wildflower)',
+      : '2. Identify the VIBE/STYLE based on the actual designs you see. Choose ONE that best matches: whimsical (default for cute illustrations), cute, boho (for earthy/floral), cottagecore (for vintage rural), magical (for fairy/sparkle), dreamy (for pastel/soft), wildflower (for floral-heavy), kawaii (for ultra-cute Japanese style), vintage (for antique/retro), fantasy (for mystical/dragon), quirky (ONLY if designs are genuinely odd/unusual)',
     '3. Hit ALL 4 buyer personas with different keyword angles',
     '4. Follow ALL the tag and description rules with ZERO compromise',
     '5. Make this listing UNSTOPPABLE - bestseller-tier SEO',
@@ -264,7 +264,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     'CRITICAL REMINDERS:',
     '- TITLE: MAX 13 WORDS. Count words carefully. 14+ words = REJECTED. Aim for 10-12 words.',
     '- TITLE: MUST start with a NUMBER (item count)',
-    '- TITLE: "Clipart" + "Watercolor" + Vibe word (Whimsical/Quirky/etc) MUST appear',
+    '- TITLE: "Clipart" + "Watercolor" + Vibe word MUST appear',
     isLineArt ? '- TITLE: "Line Art" or "Ink" MUST appear' : '',
     '- BIRTHDAY designs: Title MUST contain "Happy Birthday Clipart" exact phrase + "Watercolor"',
     '- CHRISTMAS/HALLOWEEN/EASTER/WEDDING/VALENTINE: Include "{Holiday} Clipart" + "Watercolor"',
@@ -273,7 +273,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     isLineArt
       ? '- "line art clipart" MUST be a tag\n- NEVER use "watercolor" anywhere'
       : '- "fantasy clipart" MUST be a tag',
-    '- Use vibe word (whimsical/quirky/fantasy) everywhere (title, tags, description)',
+    '- VIBE WORD selection is CRITICAL: actually LOOK at what the designs show. "Whimsical" is the DEFAULT for cute/cartoon/illustrated. "Quirky" ONLY for genuinely odd/strange designs. "Boho" for floral/earthy. "Cottagecore" for rural/vintage. Use the vibe word everywhere (title, tags, description)',
     '- End description after CTA - do NOT add AI disclosure (system adds it)',
     '',
     'Return JSON now.',
