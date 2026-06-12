@@ -35,21 +35,12 @@ const BONUS_IMAGE_URL = 'https://qugrildnvbvrtxcltefy.supabase.co/storage/v1/obj
 const VIDEO_URL = 'https://qugrildnvbvrtxcltefy.supabase.co/storage/v1/object/public/etsy-videos/suzyflow.mp4';
 
 const PROP_CRAFT = 47626759760;
-const PROP_PRIMARY_COLOR = 200;
-const PROP_SECONDARY_COLOR = 52047899002;
 const PROP_OCCASION = 46803063641;
 const PROP_HOLIDAY = 46803063659;
 const PROP_SUBJECT = 400394338806;
 
 const CRAFT_VALUES = [538, 541, 562, 584];
 const CRAFT_NAMES = ['Card making & stationery', 'Collage', "Kids' crafts", 'Scrapbooking'];
-
-const COLOR_MAP: Record<string, number> = {
-  beige: 1213, black: 1, blue: 2, bronze: 1216, brown: 3, clear: 1219,
-  copper: 1218, gold: 1214, gray: 5, green: 4, orange: 6, pink: 7,
-  purple: 8, rainbow: 1220, red: 9, 'rose gold': 1217, silver: 1215,
-  white: 10, yellow: 11,
-};
 
 const SUBJECT_MAP: Record<string, number> = {
   'abstract and geometric': 2817, animal: 2558, 'anime and cartoon': 2559,
@@ -340,7 +331,8 @@ export async function POST(req: Request) {
           5,
           async (item) => {
             const pngBuf = await removeBackground(item.buf);
-            const pngName = 'png' + (item.idx + 1) + '.png';
+            const pngBaseName = buildBaseNameFromTitle('placeholder');
+            const pngName = pngBaseName + (item.idx + 1) + '.png';
             await oauthUploadFileToDrive(pngFolderId, pngName, pngBuf, 'image/png');
             return true;
           }
@@ -457,24 +449,6 @@ export async function POST(req: Request) {
         .then((ok) => { steps.push('Craft type: ' + (ok ? 'OK' : 'atlandi')); })
         .catch(() => { steps.push('Craft type: hata'); })
     );
-
-    const pc = COLOR_MAP[(seo.primaryColor || '').toLowerCase().trim()];
-    if (pc) {
-      propertyUpdates.push(
-        updateListingProperty(listingId, PROP_PRIMARY_COLOR, [pc], [seo.primaryColor], shopKey)
-          .then((ok) => { steps.push('Primary color (' + seo.primaryColor + '): ' + (ok ? 'OK' : 'atlandi')); })
-          .catch(() => { steps.push('Primary color: hata'); })
-      );
-    }
-
-    const sc = COLOR_MAP[(seo.secondaryColor || '').toLowerCase().trim()];
-    if (sc && sc !== pc) {
-      propertyUpdates.push(
-        updateListingProperty(listingId, PROP_SECONDARY_COLOR, [sc], [seo.secondaryColor], shopKey)
-          .then((ok) => { steps.push('Secondary color (' + seo.secondaryColor + '): ' + (ok ? 'OK' : 'atlandi')); })
-          .catch(() => { steps.push('Secondary color: hata'); })
-      );
-    }
 
     const subj = SUBJECT_MAP[(seo.artSubject || '').toLowerCase().trim()];
     if (subj) {
