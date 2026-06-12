@@ -14,8 +14,6 @@ export interface SeoOutput {
   tags: string[];
   description: string;
   altBase: string;
-  primaryColor: string;
-  secondaryColor: string;
   artSubject: string;
   occasion: string;
   holiday: string;
@@ -54,7 +52,6 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   const formatToken = pngBoost ? 'PNG' : 'JPG';
   const isLineArt = input.productType === 'line_art';
 
-  const colorList = 'Beige, Black, Blue, Bronze, Brown, Clear, Copper, Gold, Gray, Green, Orange, Pink, Purple, Rainbow, Red, Rose gold, Silver, White, Yellow';
   const subjectList = 'Abstract and geometric, Animal, Anime and cartoon, Architecture and cityscape, Beach and tropical, Comics and manga, Fantasy and Sci Fi, Fashion, Flowers, Food and drink, Geography and locale, Horror and gothic, Humorous saying, Inspirational saying, Landscape and scenery, Love and friendship, Military, Music, Nautical, Patriotic and flags, People and portrait, Pet portrait, Phrase and saying, Plants and trees, Religious, Science and tech, Sports and fitness, Stars and celestial, Steampunk, Travel and transportation, Western and cowboy, Zodiac';
   const occasionList = 'none, Birthday, Anniversary, Baby shower, Wedding, Graduation, Engagement, Bridal shower';
   const holidayList = 'none, Christmas, Easter, Halloween, Thanksgiving, Valentines Day, Mothers Day, Fathers Day, New Years, St Patricks Day';
@@ -82,7 +79,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
 
     '=== OUTPUT FORMAT ===',
     'Output ONLY valid JSON, no markdown, no preamble.',
-    'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string","primaryColor":"string","secondaryColor":"string","artSubject":"string","occasion":"string","holiday":"string"}.',
+    'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string","artSubject":"string","occasion":"string","holiday":"string"}.',
 
     '=== BUYER PSYCHOLOGY ===',
     isLineArt
@@ -102,32 +99,55 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
       ? 'ALWAYS include "line art clipart" as primary tag (this is the core search term for this product).'
       : 'ALWAYS include "fantasy clipart" or "whimsical clipart" as a CROSS-NICHE tag (this captures style-browsers).',
 
-    '=== TITLE FORMULA (135 chars max, target 130-135) ===',
-    'Slot 1 (chars 0-40, HIGHEST WEIGHT): {count} {Vibe} {Subject} Clipart {Format}',
+    '=== TITLE FORMULA (HARD LIMIT: max 13 words, max 130 chars) ===',
+    'CRITICAL WORD COUNT RULE: Title must have AT MOST 13 words. Count carefully. 14+ words = REJECTED.',
+    'A "word" = space-separated token. Numbers count as 1 word. Pipe | is a separator, not a word.',
+    '',
+    'STRUCTURE (use 3 slots, NOT 4):',
+    'Slot 1 (3-5 words, MOST IMPORTANT): {number} {Vibe} {Subject} Clipart {Format}',
     isLineArt
-      ? '  - "Vibe" = Whimsical/Minimalist/Sketchy/Hand-Drawn/Fine Line/Boho/Mystical/Cute/Delicate'
-      : '  - "Vibe" = Cute/Whimsical/Fantasy/Boho/Cottagecore/Kawaii/Vintage/Magical/Dreamy/Wildflower',
+      ? '  - "Vibe" = Whimsical/Minimalist/Sketchy/Hand-Drawn/Fine Line/Boho/Mystical/Cute'
+      : '  - "Vibe" = Cute/Whimsical/Fantasy/Boho/Quirky/Kawaii/Vintage/Magical/Wildflower',
     '  - "Format" = "' + formatToken + '"',
+    '  - MUST start with a NUMBER (count of items: 20, 30, 150, etc.)',
     isLineArt
-      ? '  - Example: "20 Whimsical Cat Line Art Clipart PNG"  or  "15 Minimalist Flower Line Clipart JPG"'
-      : '  - Example: "20 Whimsical Cat Clipart PNG"  or  "15 Boho Flower Clipart JPG"',
-    'Slot 2: | {Style Modifier} {Subject Variation}',
+      ? '  - Example: "20 Whimsical Cat Line Art Clipart PNG" (7 words)'
+      : '  - Example: "20 Whimsical Cat Clipart PNG" (5 words)',
+    'Slot 2 (3-4 words): | {Style} {Subject Variation}',
     isLineArt
-      ? '  - Example: "Ink Sketch Kitten" or "Fine Line Floral"'
-      : '  - Example: "Watercolor Kitten" or "Vintage Floral"',
-    'Slot 3: | {Cross-Niche Category} {Art Form}',
+      ? '  - Example: "Ink Sketch Kitten Design"'
+      : '  - Example: "Watercolor Kitten Design"',
+    'Slot 3 (3-4 words): | {Use-case or Cross-niche}',
     isLineArt
-      ? '  - Example: "Tattoo Flash Cat Design" or "Boho Line Art Flower"'
-      : '  - Example: "Fantasy Cat Art" or "Cottagecore Flower Illustrations"',
-    'Slot 4: | {Use-Case or Buyer Intent}',
-    isLineArt
-      ? '  - Example: "Junk Journal Planner Sticker" or "Hand Drawn Tattoo Design"'
-      : '  - Example: "Digital Download for Scrapbook Crafts" or "Printable Wall Art Decor"',
-    'CRITICAL: "Clipart" word MUST appear in slot 1.',
-    'CRITICAL: A vibe modifier MUST appear in slot 1.',
-    'CRITICAL: Format ("' + formatToken + '") MUST appear in slot 1.',
-    isLineArt ? 'CRITICAL: "Line Art" or "Line" or "Ink" or "Hand Drawn" MUST appear somewhere in title.' : '',
-    'NO emojis. NO ALL-CAPS. NO weird symbols. Use only A-Z, 0-9, spaces, pipes, apostrophes.',
+      ? '  - Example: "Junk Journal Tattoo Design"'
+      : '  - Example: "Scrapbook Junk Journal Crafts"',
+    '',
+    'EXAMPLES of CORRECT (13 words or less):',
+    '- "20 Whimsical Cat Clipart PNG | Watercolor Kitten Design | Scrapbook Crafts" = 11 words ✓',
+    '- "30 Quirky Highland Cow Clipart JPG | Watercolor Folk Art | Junk Journal" = 12 words ✓',
+    '- "100 Happy Birthday Clipart Bundle | Watercolor Whimsical Cake | Card Crafts" = 11 words ✓',
+    '',
+    'EXAMPLES of WRONG (over 13 words):',
+    '- "20 Whimsical Cat Clipart PNG | Cute Watercolor Kitten Design | Fantasy Cat Art Illustrations | Scrapbook Junk Journal" = 17 words ✗',
+    '',
+    '🎂 SPECIAL THEME OVERRIDES (USE WHEN APPLICABLE):',
+    '- BIRTHDAY designs (cake, candles, party, balloons, birthday wishes): Title MUST contain "Happy Birthday Clipart" exact phrase. Example: "100 Happy Birthday Clipart Bundle | Watercolor Cake Candles | Cards" (10 words)',
+    '- CHRISTMAS designs: include "Christmas Clipart" + "Watercolor". Example: "30 Christmas Clipart PNG | Watercolor Santa Tree | Holiday Cards"',
+    '- HALLOWEEN: include "Halloween Clipart" + "Watercolor". Example: "25 Halloween Clipart PNG | Watercolor Witch Cat Pumpkin | Spooky"',
+    '- EASTER: include "Easter Clipart" + "Watercolor"',
+    '- WEDDING: include "Wedding Clipart" + "Watercolor"',
+    '- VALENTINE: include "Valentine Clipart" + "Watercolor"',
+    '',
+    'CRITICAL RULES (ALL apply):',
+    '- MUST start with a number (the design count)',
+    '- "Clipart" MUST appear in Slot 1',
+    '- "Watercolor" MUST appear somewhere in title (mandatory keyword)',
+    '- A vibe modifier MUST appear (Whimsical/Quirky/Cute/Fantasy/Boho/etc)',
+    '- Format ("' + formatToken + '") MUST appear in Slot 1',
+    isLineArt ? '- "Line Art" or "Line" or "Ink" MUST appear somewhere in title.' : '',
+    '- HARD LIMIT: 13 words max, 130 chars max',
+    '- NO emojis, NO ALL-CAPS, NO weird symbols',
+    '- Only A-Z, 0-9, spaces, pipes (|), apostrophes',
 
     '=== TAG FORMULA (exactly 13 tags, 20 chars max, NO duplicates, NO "jpg") ===',
 
@@ -211,14 +231,10 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     '=== OTHER FIELDS ===',
     isLineArt
       ? 'altBase: 6-10 word SEO phrase. Include subject + "line art" + "clipart" + vibe. Example: "whimsical cat line art clipart ink illustration"'
-      : 'altBase: 6-10 word SEO phrase. Include subject + "clipart" + colors + vibe. Example: "cute watercolor cat clipart whimsical pastel fantasy"',
-    'primaryColor: dominant color, EXACTLY ONE from: ' + colorList + '.',
-    isLineArt
-      ? 'For line art on white background, primaryColor is almost always "Black", secondaryColor "White".'
-      : 'secondaryColor: second dominant, EXACTLY ONE different from: ' + colorList + '.',
+      : 'altBase: 6-10 word SEO phrase. Include subject + "clipart" + vibe. Example: "cute watercolor cat clipart whimsical fantasy"',
     'artSubject: EXACTLY ONE from: ' + subjectList + '. Cats/dogs/animals=Animal. Flowers=Flowers. Mystical=Fantasy and Sci Fi.',
-    'occasion: ONE from: ' + occasionList + '. Use none unless DEFINITIVELY targeting occasion.',
-    'holiday: ONE from: ' + holidayList + '. Use none unless DEFINITIVELY that holiday.',
+    'occasion: ONE from: ' + occasionList + '. Use "none" if the designs are NOT specifically targeting a special occasion. Only use a value when designs DEFINITIVELY match the occasion (wedding rings/bouquets = Wedding, birthday cake/candles = Birthday).',
+    'holiday: ONE from: ' + holidayList + '. Use "none" if the designs are NOT specifically a holiday theme. Only use a value when designs DEFINITIVELY match (Santa/Christmas tree = Christmas, witch/pumpkin = Halloween).',
     lineArtVibeOverride,
   ].filter((line) => line.length > 0).join('\n');
 
@@ -233,19 +249,26 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     '1. Identify the MAIN SUBJECT (one word: cat, flower, girl, dragon, etc.)',
     isLineArt
       ? '2. Identify the VIBE/STYLE (one word: whimsical, minimalist, sketchy, fine line, boho, mystical, cute, delicate)'
-      : '2. Identify the VIBE/STYLE (one word: cute, whimsical, fantasy, boho, cottagecore, kawaii, vintage, magical, dreamy, wildflower)',
+      : '2. Identify the VIBE/STYLE (one word: cute, whimsical, fantasy, boho, quirky, kawaii, vintage, magical, wildflower)',
     '3. Hit ALL 4 buyer personas with different keyword angles',
     '4. Follow ALL the tag and description rules with ZERO compromise',
     '5. Make this listing UNSTOPPABLE - bestseller-tier SEO',
     '',
     'CRITICAL REMINDERS:',
+    '- TITLE: MAX 13 WORDS. Count words carefully. 14+ words = REJECTED. Aim for 10-12 words.',
+    '- TITLE: MUST start with a NUMBER (item count)',
+    '- TITLE: "Clipart" + "Watercolor" + Vibe word (Whimsical/Quirky/etc) MUST appear',
+    isLineArt ? '- TITLE: "Line Art" or "Ink" MUST appear' : '',
+    '- BIRTHDAY designs: Title MUST contain "Happy Birthday Clipart" exact phrase + "Watercolor"',
+    '- CHRISTMAS/HALLOWEEN/EASTER/WEDDING/VALENTINE: Include "{Holiday} Clipart" + "Watercolor"',
     '- NO "jpg" anywhere in tags (buyers dont search this way)',
     '- "clip art" (with space) in exactly 1 tag (secret weapon)',
     isLineArt
       ? '- "line art clipart" MUST be a tag\n- NEVER use "watercolor" anywhere'
       : '- "fantasy clipart" MUST be a tag',
-    '- Use vibe word everywhere (title, tags, description)',
+    '- Use vibe word (whimsical/quirky/fantasy) everywhere (title, tags, description)',
     '- End description after CTA - do NOT add AI disclosure (system adds it)',
+    '- occasion and holiday: use "none" if not definitively matching',
     '',
     'Return JSON now.',
   ].filter((line) => line.length > 0).join('\n');
@@ -286,7 +309,31 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   }
 
   if (typeof parsed.title !== 'string') parsed.title = '';
-  if (parsed.title.length > 140) parsed.title = parsed.title.slice(0, 140);
+
+  // CRITICAL: Title HARD validation - 13 words max + 130 chars max
+  if (parsed.title.length > 130) {
+    parsed.title = parsed.title.slice(0, 130).trim();
+  }
+  // Word count validation - asla 13'u gecmesin
+  const titleWords = parsed.title.split(/\s+/).filter((w) => w.length > 0 && w !== '|');
+  if (titleWords.length > 13) {
+    // Pipe konumlarini koru, sadece word'leri kes
+    const tokens = parsed.title.split(/\s+/);
+    const kept: string[] = [];
+    let wordCount = 0;
+    for (const t of tokens) {
+      if (t === '|') {
+        if (kept.length > 0 && kept[kept.length - 1] !== '|') kept.push(t);
+        continue;
+      }
+      if (wordCount >= 13) break;
+      kept.push(t);
+      wordCount++;
+    }
+    // Sondaki yetim pipe'i temizle
+    while (kept.length > 0 && kept[kept.length - 1] === '|') kept.pop();
+    parsed.title = kept.join(' ').trim();
+  }
 
   if (!Array.isArray(parsed.tags)) parsed.tags = [];
 
@@ -345,8 +392,6 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   if (typeof parsed.altBase !== 'string' || parsed.altBase.length === 0) {
     parsed.altBase = isLineArt ? 'whimsical line art clipart ink illustration' : 'watercolor clipart design';
   }
-  if (typeof parsed.primaryColor !== 'string') parsed.primaryColor = '';
-  if (typeof parsed.secondaryColor !== 'string') parsed.secondaryColor = '';
   if (typeof parsed.artSubject !== 'string') parsed.artSubject = '';
   if (typeof parsed.occasion !== 'string') parsed.occasion = 'none';
   if (typeof parsed.holiday !== 'string') parsed.holiday = 'none';
