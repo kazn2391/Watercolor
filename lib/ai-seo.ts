@@ -14,6 +14,8 @@ export interface SeoOutput {
   tags: string[];
   description: string;
   altBase: string;
+  primaryColor: string;
+  secondaryColor: string;
   artSubject: string;
   occasion: string;
   holiday: string;
@@ -52,6 +54,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   const formatToken = pngBoost ? 'PNG' : 'JPG';
   const isLineArt = input.productType === 'line_art';
 
+  const colorList = 'Beige, Black, Blue, Bronze, Brown, Clear, Copper, Gold, Gray, Green, Orange, Pink, Purple, Rainbow, Red, Rose gold, Silver, White, Yellow';
   const subjectList = 'Abstract and geometric, Animal, Anime and cartoon, Architecture and cityscape, Beach and tropical, Comics and manga, Fantasy and Sci Fi, Fashion, Flowers, Food and drink, Geography and locale, Horror and gothic, Humorous saying, Inspirational saying, Landscape and scenery, Love and friendship, Military, Music, Nautical, Patriotic and flags, People and portrait, Pet portrait, Phrase and saying, Plants and trees, Religious, Science and tech, Sports and fitness, Stars and celestial, Steampunk, Travel and transportation, Western and cowboy, Zodiac';
   const occasionList = 'none, Birthday, Anniversary, Baby shower, Wedding, Graduation, Engagement, Bridal shower';
   const holidayList = 'none, Christmas, Easter, Halloween, Thanksgiving, Valentines Day, Mothers Day, Fathers Day, New Years, St Patricks Day';
@@ -79,7 +82,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
 
     '=== OUTPUT FORMAT ===',
     'Output ONLY valid JSON, no markdown, no preamble.',
-    'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string","artSubject":"string","occasion":"string","holiday":"string"}.',
+    'Schema: {"title":"string","tags":["13 strings"],"description":"string","altBase":"string","primaryColor":"string","secondaryColor":"string","artSubject":"string","occasion":"string","holiday":"string"}.',
 
     '=== BUYER PSYCHOLOGY ===',
     isLineArt
@@ -231,10 +234,14 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     '=== OTHER FIELDS ===',
     isLineArt
       ? 'altBase: 6-10 word SEO phrase. Include subject + "line art" + "clipart" + vibe. Example: "whimsical cat line art clipart ink illustration"'
-      : 'altBase: 6-10 word SEO phrase. Include subject + "clipart" + vibe. Example: "cute watercolor cat clipart whimsical fantasy"',
+      : 'altBase: 6-10 word SEO phrase. Include subject + "clipart" + colors + vibe. Example: "cute watercolor cat clipart whimsical pastel fantasy"',
+    'primaryColor: dominant color, EXACTLY ONE from: ' + colorList + '.',
+    isLineArt
+      ? 'For line art on white background, primaryColor is almost always "Black", secondaryColor "White".'
+      : 'secondaryColor: second dominant, EXACTLY ONE different from: ' + colorList + '.',
     'artSubject: EXACTLY ONE from: ' + subjectList + '. Cats/dogs/animals=Animal. Flowers=Flowers. Mystical=Fantasy and Sci Fi.',
-    'occasion: ONE from: ' + occasionList + '. Use "none" if the designs are NOT specifically targeting a special occasion. Only use a value when designs DEFINITIVELY match the occasion (wedding rings/bouquets = Wedding, birthday cake/candles = Birthday).',
-    'holiday: ONE from: ' + holidayList + '. Use "none" if the designs are NOT specifically a holiday theme. Only use a value when designs DEFINITIVELY match (Santa/Christmas tree = Christmas, witch/pumpkin = Halloween).',
+    'occasion: ONE from: ' + occasionList + '. Use none unless DEFINITIVELY targeting occasion.',
+    'holiday: ONE from: ' + holidayList + '. Use none unless DEFINITIVELY that holiday.',
     lineArtVibeOverride,
   ].filter((line) => line.length > 0).join('\n');
 
@@ -268,7 +275,6 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
       : '- "fantasy clipart" MUST be a tag',
     '- Use vibe word (whimsical/quirky/fantasy) everywhere (title, tags, description)',
     '- End description after CTA - do NOT add AI disclosure (system adds it)',
-    '- occasion and holiday: use "none" if not definitively matching',
     '',
     'Return JSON now.',
   ].filter((line) => line.length > 0).join('\n');
@@ -392,6 +398,8 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   if (typeof parsed.altBase !== 'string' || parsed.altBase.length === 0) {
     parsed.altBase = isLineArt ? 'whimsical line art clipart ink illustration' : 'watercolor clipart design';
   }
+  if (typeof parsed.primaryColor !== 'string') parsed.primaryColor = '';
+  if (typeof parsed.secondaryColor !== 'string') parsed.secondaryColor = '';
   if (typeof parsed.artSubject !== 'string') parsed.artSubject = '';
   if (typeof parsed.occasion !== 'string') parsed.occasion = 'none';
   if (typeof parsed.holiday !== 'string') parsed.holiday = 'none';
