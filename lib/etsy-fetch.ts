@@ -42,7 +42,7 @@ export async function fetchListingDetails(
 
   // ONCE genel endpoint dene (aktif listing icin)
   let res = await fetch(
-    ETSY_API + '/listings/' + listingId + '?includes=Tags',
+    ETSY_API + '/listings/' + listingId,
     {
       headers: {
         Authorization: 'Bearer ' + token,
@@ -54,7 +54,7 @@ export async function fetchListingDetails(
   // Eger 404 ise shop endpoint dene (draft listing icin)
   if (res.status === 404) {
     res = await fetch(
-      ETSY_API + '/shops/' + shopId + '/listings/' + listingId + '?includes=Tags',
+      ETSY_API + '/shops/' + shopId + '/listings/' + listingId,
       {
         headers: {
           Authorization: 'Bearer ' + token,
