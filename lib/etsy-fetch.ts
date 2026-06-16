@@ -28,24 +28,41 @@ export function extractListingId(url: string): number | null {
 }
 
 /**
- * Etsy API'den listing detaylarini ceker
+ * Etsy API'den listing detaylarini ceker.
+ * Aktif (yayinda) listing'ler icin GENEL endpoint kullanir.
+ * Draft listing'ler icin shop endpoint'i kullanir (fallback).
  */
 export async function fetchListingDetails(
   listingId: number,
   shopKey: string = 'shop1'
 ): Promise<ListingDetails> {
   const token = await getValidEtsyToken(shopKey);
+  const apiKey = getEtsyApiKeyHeader();
   const shopId = getEtsyShopId(shopKey);
 
-  const res = await fetch(
-    ETSY_API + '/shops/' + shopId + '/listings/' + listingId + '?includes=Tags',
+  // ONCE genel endpoint dene (aktif listing icin)
+  let res = await fetch(
+    ETSY_API + '/listings/' + listingId + '?includes=Tags',
     {
       headers: {
         Authorization: 'Bearer ' + token,
-        'x-api-key': getEtsyApiKeyHeader(),
+        'x-api-key': apiKey,
       },
     }
   );
+
+  // Eger 404 ise shop endpoint dene (draft listing icin)
+  if (res.status === 404) {
+    res = await fetch(
+      ETSY_API + '/shops/' + shopId + '/listings/' + listingId + '?includes=Tags',
+      {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'x-api-key': apiKey,
+        },
+      }
+    );
+  }
 
   const data = await res.json();
   if (!res.ok) {
