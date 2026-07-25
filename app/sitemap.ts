@@ -1,19 +1,8 @@
 import { MetadataRoute } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
-const BASE = 'https://www.watercolorclipart.org';
-export const revalidate = 3600; // 1 saatte bir yenilenir
-
-const COLLECTIONS = [
-  'watercolor-cat-clipart',
-  'woman-art',
-  'peeking-art',
-  'quirky-whimsical',
-  'birthday-celebration',
-  'christmas-halloween',
-  'easter-valentine',
-  'mystic-religious',
-];
+const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.watercolorclipart.org';
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
@@ -25,40 +14,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/blog`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
   ];
 
-  const collectionPages: MetadataRoute.Sitemap = COLLECTIONS.map((slug) => ({
-    url: `${BASE}/${slug}`,
-    lastModified: now,
-    changeFrequency: 'weekly' as const,
-    priority: 0.85,
-  }));
-
-  // --- LISTING SAYFALARI (asil eksik olan kisim) ---
-  let listingPages: MetadataRoute.Sitemap = [];
+  // Kategoriler (DB'den, elle yazmaya gerek yok)
+  let categoryPages: MetadataRoute.Sitemap = [];
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // ⚠️ tablo ve kolon adlarini kendi semana gore duzelt
-    const { data } = await supabase
-      .from('listings')
-      .select('slug, listing_id, updated_at, num_favorers')
-      .order('num_favorers', { ascending: false })
-      .limit(2000);
-
+    const { data } = await supabase.from('categories').select('slug');
     if (data) {
-      listingPages = data.map((row: any) => ({
-        url: `${BASE}/listing/${row.slug}-${row.listing_id}`,
-        lastModified: row.updated_at ? new Date(row.updated_at) : now,
+      categoryPages = data.map((c: any) => ({
+        url: `${BASE}/${c.slug}`,
+        lastModified: now,
         changeFrequency: 'weekly' as const,
-        // cok favorilenen listing'lere daha yuksek oncelik
-        priority: (row.num_favorers || 0) > 100 ? 0.8 : 0.6,
+        priority: 0.85,
       }));
     }
   } catch (e) {
-    console.error('sitemap listing fetch failed', e);
+    console.error('sitemap categories failed', e);
   }
 
-  return [...staticPages, ...collectionPages, ...listingPages];
+  // Listing sayfalari — slug zaten ID iceriyor
+  let listingPages: MetadataRoute.Sitemap = [];
+  try {
+    const { data } = await supabase.from('listings').select('slug').limit(5000);
+    if (data) {
+      listingPages = data.map((l: any) => ({
+        url: `${BASE}/listing/${l.slug}`,
+        lastModified: now,
+        changeFrequency: 'weekly' as const,
+        priority: 0.6,
+      }));
+    }
+  } catch (e) {
+    console.error('sitemap listings failed', e);
+  }
+
+  return [...staticPages, ...categoryPages, ...listingPages];
 }
