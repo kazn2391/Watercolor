@@ -17,12 +17,14 @@ export async function POST(req: Request) {
   let listingUrl = '';
   let shopKey: string = 'shop1';
   let estimatedSales: number = 0;
+  let pngMode = false;
 
   try {
     const body = await req.json();
     listingUrl = body.listingUrl || '';
     shopKey = body.shopKey === 'shop2' ? 'shop2' : 'shop1';
     estimatedSales = parseInt(body.estimatedSales) || 0;
+    pngMode = body.pngMode === true;
   } catch (e) {
     return NextResponse.json({ error: 'listingUrl gerekli' }, { status: 400 });
   }
@@ -56,12 +58,16 @@ export async function POST(req: Request) {
       steps.push('⚠️ BESTSELLER UYARI: Bu listing iyi performans gosteriyor, dikkatli ol');
     }
 
-    const optimized = await generateOptimizedSeo(details, diagnosisInfo);
+    const optimized = await generateOptimizedSeo(details, diagnosisInfo, pngMode);
     steps.push('Yeni SEO uretildi');
+    if (pngMode) {
+      steps.push('PNG modu aktif - SEO transparent PNG icin optimize edildi');
+    }
 
     return NextResponse.json({
       success: true,
       listingId,
+      pngMode,
       current: {
         title: details.title,
         tags: details.tags,
