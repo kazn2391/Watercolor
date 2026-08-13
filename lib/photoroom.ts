@@ -4,6 +4,7 @@ const FAPIHUB_API = 'https://fapihub.com/v2/rembg/';
 const FAPIHUB_MODEL = process.env.FAPIHUB_MODEL || 'falcon';
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const OUTPUT_SIZE = 3000;
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 async function buildUploadBuffer(input: Buffer): Promise<{ buf: Buffer; note: string }> {
@@ -60,14 +61,10 @@ export async function removeBackground(inputBuffer: Buffer): Promise<Buffer> {
     );
   }
 
-  // JSON dondurmus mu kontrol et (binary bekliyoruz)
   if (contentType.includes('json') || (out.length > 0 && out[0] === 0x7b)) {
-    throw new Error(
-      'FAPIhub binary yerine JSON dondu: ' + out.toString('utf8').slice(0, 250)
-    );
+    throw new Error('FAPIhub binary yerine JSON dondu: ' + out.toString('utf8').slice(0, 250));
   }
 
-  // Gercekten PNG mi?
   if (out.length < 8 || !out.subarray(0, 8).equals(PNG_MAGIC)) {
     throw new Error(
       'FAPIhub gecerli PNG dondurmedi. ct=' + contentType +
@@ -76,19 +73,28 @@ export async function removeBackground(inputBuffer: Buffer): Promise<Buffer> {
     );
   }
 
-  // Icerik gercekten var mi? (tamamen seffaf PNG kontrolu)
-  const meta = await sharp(out).stats();
-  const alphaChannel = meta.channels[meta.channels.length - 1];
+  const stats = await sharp(out).stats();
+  const alphaChannel = stats.channels[stats.channels.length - 1];
   if (alphaChannel && alphaChannel.max === 0) {
     throw new Error('FAPIhub tamamen seffaf gorsel dondu (model konuyu bulamadi)');
   }
 
+  // Cikti PNG'yi 3000px'e buyut - seffaflik korunur
+  const finalPng = await sharp(out)
+    .resize(OUTPUT_SIZE, OUTPUT_SIZE, {
+      fit: 'inside',
+      withoutEnlargement: false,
+      kernel: sharp.kernel.lanczos3,
+    })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+
   const secs = Math.round((Date.now() - t0) / 100) / 10;
   console.log(
-    '[fapihub] model=' + FAPIHUB_MODEL + ' ' + note +
-    ' -> ' + Math.round(out.length / 1024) + 'KB' +
-    ' ct=' + contentType + ' sure=' + secs + 's'
+    '[fapihub] model=' + FAPIHUB_MODEL + ' gonderim=' + note +
+    ' -> ' + Math.round(finalPng.length / 1024) + 'KB @' + OUTPUT_SIZE + 'px' +
+    ' sure=' + secs + 's'
   );
 
-  return out;
+  return finalPng;
 }
