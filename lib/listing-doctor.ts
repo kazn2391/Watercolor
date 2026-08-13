@@ -2,7 +2,11 @@ import { ListingDetails, ListingStats } from './etsy-fetch';
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
-export type DiagnosisCategory = 'A_HIGH_VIEWS_LOW_SALES' | 'B_DEAD_SEO' | 'C_SEASONAL_MISS' | 'D_COOLED_BESTSELLER';
+export type DiagnosisCategory =
+  | 'A_HIGH_VIEWS_LOW_SALES'
+  | 'B_DEAD_SEO'
+  | 'C_SEASONAL_MISS'
+  | 'D_COOLED_BESTSELLER';
 
 export interface Diagnosis {
   category: DiagnosisCategory;
@@ -38,18 +42,29 @@ export function diagnoseCategory(
   details: ListingDetails,
   stats: ListingStats,
   estimatedSales: number
-): { category: DiagnosisCategory; categoryLabel: string; diagnosis: string; isBestsellerWarning: boolean } {
+): {
+  category: DiagnosisCategory;
+  categoryLabel: string;
+  diagnosis: string;
+  isBestsellerWarning: boolean;
+} {
   const isBestsellerWarning = estimatedSales >= 20 || details.numFavorers >= 100;
 
   const titleLower = details.title.toLowerCase();
-  const seasonalKeywords = ['christmas', 'halloween', 'easter', 'valentine', 'thanksgiving', 'mothers day', 'fathers day', 'st patricks'];
+  const seasonalKeywords = [
+    'christmas', 'halloween', 'easter', 'valentine',
+    'thanksgiving', 'mothers day', 'fathers day', 'st patricks',
+  ];
   const isSeasonalListing = seasonalKeywords.some((k) => titleLower.includes(k));
 
   if (stats.viewsPerDay < 1 && details.views < 100) {
     return {
       category: 'B_DEAD_SEO',
       categoryLabel: 'B - SEO Olu',
-      diagnosis: 'Sadece ' + details.views + ' lifetime view, ' + Math.round(stats.viewsPerDay * 10) / 10 + ' view/gun. Etsy bu listingi bulamiyor. Title ve taglar yeniden yazilmali.',
+      diagnosis:
+        'Sadece ' + details.views + ' lifetime view, ' +
+        Math.round(stats.viewsPerDay * 10) / 10 +
+        ' view/gun. Etsy bu listingi bulamiyor. Title ve taglar yeniden yazilmali.',
       isBestsellerWarning,
     };
   }
@@ -58,7 +73,9 @@ export function diagnoseCategory(
     return {
       category: 'A_HIGH_VIEWS_LOW_SALES',
       categoryLabel: 'A - Yuksek View Dusuk Sale',
-      diagnosis: details.views + ' view ama dusuk satis. SEO trafik getiriyor ama listing tiklananlari donusturmuyor. Description ve hook guclendir, title az dokun.',
+      diagnosis:
+        details.views +
+        ' view ama dusuk satis. SEO trafik getiriyor ama listing tiklananlari donusturmuyor. Description ve hook guclendir, title az dokun.',
       isBestsellerWarning,
     };
   }
@@ -67,7 +84,8 @@ export function diagnoseCategory(
     return {
       category: 'C_SEASONAL_MISS',
       categoryLabel: 'C - Sezonsal',
-      diagnosis: 'Sezonsal tema tespit edildi. Yaklasan sezon icin optimize et veya sezon-bagimsiz keywordler ekle.',
+      diagnosis:
+        'Sezonsal tema tespit edildi. Yaklasan sezon icin optimize et veya sezon-bagimsiz keywordler ekle.',
       isBestsellerWarning,
     };
   }
@@ -76,7 +94,9 @@ export function diagnoseCategory(
     return {
       category: 'D_COOLED_BESTSELLER',
       categoryLabel: 'D - Sogumus Bestseller',
-      diagnosis: 'Bir zamanlar satiyor olmali (' + estimatedSales + ' tahmini satis) ama sogumus. Minor tweaks + fresh keyword ekle.',
+      diagnosis:
+        'Bir zamanlar satiyor olmali (' + estimatedSales +
+        ' tahmini satis) ama sogumus. Minor tweaks + fresh keyword ekle.',
       isBestsellerWarning,
     };
   }
@@ -90,12 +110,23 @@ export function diagnoseCategory(
 }
 
 /**
- * AI ile yeni SEO uretir
+ * AI ile yeni SEO uretir. pngMode=true ise transparent PNG icin optimize eder.
  */
 export async function generateOptimizedSeo(
   details: ListingDetails,
-  diagnosisInfo: { category: DiagnosisCategory; categoryLabel: string; diagnosis: string; isBestsellerWarning: boolean }
-): Promise<{ newTitle: string; newTags: string[]; newDescription: string; recommendation: string }> {
+  diagnosisInfo: {
+    category: DiagnosisCategory;
+    categoryLabel: string;
+    diagnosis: string;
+    isBestsellerWarning: boolean;
+  },
+  pngMode: boolean = false
+): Promise<{
+  newTitle: string;
+  newTags: string[];
+  newDescription: string;
+  recommendation: string;
+}> {
   const categoryGuidance: Record<DiagnosisCategory, string> = {
     A_HIGH_VIEWS_LOW_SALES:
       'KATEGORI A: Title az dokun (trafik aliyor), description komple yeniden yaz - hook gucu artir, urun ozelliklerini netlestir, bonus image, video, AI disclosure vurgusu yap. Tag-larin 3-4unu yenile, 9-10unu koru.',
@@ -118,11 +149,17 @@ export async function generateOptimizedSeo(
     'Current description (first 300 chars): "' + details.description.slice(0, 300) + '"',
     'Diagnosis: ' + diagnosisInfo.diagnosis,
     'Strategy: ' + categoryGuidance[diagnosisInfo.category],
-    diagnosisInfo.isBestsellerWarning ? '⚠️ BESTSELLER WARNING: This listing has good history. Be CONSERVATIVE with changes. Preserve what works.' : '',
+    diagnosisInfo.isBestsellerWarning
+      ? '⚠️ BESTSELLER WARNING: This listing has good history. Be CONSERVATIVE with changes. Preserve what works.'
+      : '',
     '',
     '=== OUTPUT FORMAT ===',
     'Output ONLY valid JSON with this schema:',
     '{"newTitle":"string","newTags":["13 strings"],"newDescription":"string","recommendation":"1-2 sentence summary of what you changed and why"}',
+    '',
+    pngMode
+      ? '=== PNG UPGRADE MODE (CRITICAL - OVERRIDES OTHER RULES WHERE CONFLICTING) ===\nThis listing has just been upgraded: TRANSPARENT PNG files are now included in a separate Png folder, alongside the existing JPG files.\n- Title MUST contain "PNG" (replace "JPG" if present)\n- Include exactly 2 PNG tags: "transparent png" and "{subject} png"\n- In the description, add a clear standout line: transparent background PNG files included - no white box, perfect for sublimation, layering, t-shirts, mugs, tumblers and stickers\n- In the WHAT YOU GET section, list BOTH formats: high-resolution JPG files AND transparent background PNG files\n- Frame this as an UPGRADE - the buyer now gets more value than before'
+      : '',
     '',
     '=== TITLE RULES (HARD) ===',
     '- MAX 13 words',
@@ -131,7 +168,9 @@ export async function generateOptimizedSeo(
     '- Must contain "Watercolor"',
     '- Must contain a vibe word: Whimsical, Cute, Boho, Cottagecore, Magical, Dreamy, Fantasy (default Whimsical)',
     '- 3 slots separated by | (pipe)',
-    '- Example: "30 Whimsical Cat Clipart PNG | Watercolor Kitten Design | Scrapbook Crafts"',
+    pngMode
+      ? '- Example: "30 Whimsical Cat Clipart PNG | Watercolor Kitten Design | Scrapbook Crafts"'
+      : '- Example: "30 Whimsical Cat Clipart PNG | Watercolor Kitten Design | Scrapbook Crafts"',
     '- BIRTHDAY: must contain "Happy Birthday Clipart" exact phrase',
     '- CHRISTMAS/HALLOWEEN/EASTER/WEDDING/VALENTINE: include "{Holiday} Clipart" + "Watercolor"',
     '',
@@ -143,6 +182,9 @@ export async function generateOptimizedSeo(
     '- Include "clip art" (with space) in exactly 1 tag (low competition keyword)',
     '- Include "fantasy clipart" (mandatory cross-niche)',
     '- Include "watercolor clipart" (mandatory)',
+    pngMode
+      ? '- Include "transparent png" and one "{subject} png" tag (PNG mode)'
+      : '',
     '- Tier strategy: 3 primary anchors, 3 long-tail, 3 cross-niche, 4 use-case',
     '',
     '=== DESCRIPTION RULES ===',
@@ -184,7 +226,12 @@ export async function generateOptimizedSeo(
   }
   text = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
-  let parsed: { newTitle: string; newTags: string[]; newDescription: string; recommendation: string };
+  let parsed: {
+    newTitle: string;
+    newTags: string[];
+    newDescription: string;
+    recommendation: string;
+  };
   try {
     parsed = JSON.parse(text);
   } catch (e) {
@@ -223,6 +270,15 @@ export async function generateOptimizedSeo(
     if (cleanTags.indexOf(tag) !== -1) continue;
     cleanTags.push(tag);
   }
+
+  // PNG modunda zorunlu taglari garanti et
+  if (pngMode) {
+    if (cleanTags.indexOf('transparent png') === -1) {
+      if (cleanTags.length >= 13) cleanTags.pop();
+      cleanTags.push('transparent png');
+    }
+  }
+
   parsed.newTags = cleanTags.slice(0, 13);
 
   // Append AI disclosure + bonus gift
