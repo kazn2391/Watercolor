@@ -15,7 +15,6 @@ import {
 import { generateEtsySeo } from '@/lib/ai-seo';
 import { removeBackground } from '@/lib/photoroom';
 import { upscaleToJpeg, buildBaseNameFromTitle } from '@/lib/image-upscaler';
-import { addWatermark } from '@/lib/watermark';
 import { rewritePdfDownloadLink } from '@/lib/pdf-rewrite';
 import {
   createDraftListing,
@@ -31,6 +30,7 @@ export const maxDuration = 300;
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
+// Supabase Storage URL'leri - hem SuzyFlow hem SuzyCard icin ayni dosyalar
 const BONUS_IMAGE_URL = 'https://qugrildnvbvrtxcltefy.supabase.co/storage/v1/object/public/etsy-videos/suzypic.jpg';
 const VIDEO_URL = 'https://qugrildnvbvrtxcltefy.supabase.co/storage/v1/object/public/etsy-videos/suzyflow.mp4';
 
@@ -67,9 +67,6 @@ const HOLIDAY_MAP: Record<string, number> = {
 };
 
 const ADMIN_PASSWORD = 'Kuzey2391';
-
-// Ilk kac gorsele filigran konsun (0 = hicbiri, 10 = hepsi)
-const WATERMARK_COUNT = parseInt(process.env.WATERMARK_COUNT || '10', 10);
 
 async function processBatch<T, R>(
   items: T[],
@@ -484,11 +481,9 @@ export async function POST(req: Request) {
     steps.push('[' + elapsed() + '] Tum property update tamamlandi');
 
     steps.push('[' + elapsed() + '] Etsy resim upload basliyor sirali (' + top10.length + ' resim)');
-    steps.push('[' + elapsed() + '] Filigran: ilk ' + WATERMARK_COUNT + ' gorsele uygulanacak');
 
     let etsyImgSuccess = 0;
     let etsyImgFail = 0;
-    let watermarked = 0;
     const etsyErrors: string[] = [];
 
     for (let i = 0; i < top10.length; i++) {
@@ -514,19 +509,8 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // FILIGRAN - sadece Etsy onizleme gorsellerine
-      let uploadBuf = buf;
-      if (i < WATERMARK_COUNT) {
-        try {
-          uploadBuf = await addWatermark(buf);
-          watermarked++;
-        } catch (wmErr: any) {
-          steps.push('Filigran hatasi (resim ' + (i + 1) + '), orijinal kullanildi');
-        }
-      }
-
       const alt = buildAltText(seo.altBase, i + 1, top10.length);
-      const result = await uploadListingImageWithRetry(listingId, uploadBuf, i + 1, alt, shopKey, 3);
+      const result = await uploadListingImageWithRetry(listingId, buf, i + 1, alt, shopKey, 3);
 
       if (result.success) {
         etsyImgSuccess++;
@@ -540,7 +524,7 @@ export async function POST(req: Request) {
       }
     }
 
-    steps.push('[' + elapsed() + '] Etsy upload sonuc: ' + etsyImgSuccess + '/' + top10.length + ' basarili' + (upscaleApplied ? ' (4032x4032)' : '') + ', ' + watermarked + ' filigranli');
+    steps.push('[' + elapsed() + '] Etsy upload sonuc: ' + etsyImgSuccess + '/' + top10.length + ' basarili' + (upscaleApplied ? ' (4032x4032)' : ''));
     if (etsyImgFail > 0) {
       for (let i = 0; i < Math.min(3, etsyErrors.length); i++) {
         steps.push('  - ' + etsyErrors[i]);
@@ -550,7 +534,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // ===== 11. RESIM: BONUS PACK GORSEL (filigran YOK) =====
+    // ===== 11. RESIM: BONUS PACK GORSEL =====
     try {
       const bonusImgBuf = await fetchBufferFromUrl(BONUS_IMAGE_URL);
       const bonusAlt = '100 plus bonus pack included free gift watercolor clipart designs';
