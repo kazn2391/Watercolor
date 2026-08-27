@@ -555,8 +555,8 @@ export async function POST(req: Request) {
     await Promise.all(propertyUpdates);
     log('[' + elapsed() + '] Tum property update tamamlandi');
 
-    // ===== ETSY RESIM UPLOAD - 2'LI PARALEL, BEKLEMESIZ =====
-    log('[' + elapsed() + '] Etsy resim upload basliyor 2li paralel (' + top10.length + ' resim)');
+        // ===== ETSY RESIM UPLOAD - SIRALI (Etsy listing'i kilitler, paralel kabul etmez) =====
+    log('[' + elapsed() + '] Etsy resim upload basliyor sirali (' + top10.length + ' resim)');
 
     let etsyImgSuccess = 0;
     let etsyImgFail = 0;
@@ -565,7 +565,7 @@ export async function POST(req: Request) {
     const uploadIndices: number[] = [];
     for (let i = 0; i < top10.length; i++) uploadIndices.push(i);
 
-    await processBatch(uploadIndices, 2, async (i) => {
+    await processBatch(uploadIndices, 1, async (i) => {
       let buf: Buffer | null = null;
 
       if (upscaleApplied && upscaledBuffers[i]) {
