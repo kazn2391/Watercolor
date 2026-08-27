@@ -262,13 +262,18 @@ export async function POST(req: Request) {
 
   const taxonomyPromise = findClipArtTaxonomyId().catch(() => null);
 
-  const pdfTemplatePromise = db
-    .from('etsy_settings')
-    .select('pdf_template_b64')
-    .eq('id', 1)
-    .single()
-    .then((r) => r.data)
-    .catch(() => null);
+  const pdfTemplatePromise = (async () => {
+    try {
+      const r = await db
+        .from('etsy_settings')
+        .select('pdf_template_b64')
+        .eq('id', 1)
+        .single();
+      return r.data;
+    } catch (e) {
+      return null;
+    }
+  })();
 
   try {
     const shopLabel = shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt';
