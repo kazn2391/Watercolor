@@ -434,11 +434,18 @@ export async function POST(req: Request) {
     const taxonomyId = await findClipArtTaxonomyId();
     steps.push('[' + elapsed() + '] Taxonomy: ' + taxonomyId);
 
+        const isLineArt = productType === 'line_art';
     const listingId = await createDraftListing({
       title: seo.title,
       description: seo.description,
       tags: seo.tags,
       taxonomyId,
+      materials: isLineArt
+        ? ['digital file', 'ink', 'line art']
+        : ['digital file', finalHasPngSubfolder ? 'png' : 'jpg', 'watercolor'],
+      styles: isLineArt
+        ? ['Minimalist', 'Whimsical']
+        : ['Whimsical', 'Cottagecore'],
     }, shopKey);
     steps.push('[' + elapsed() + '] Draft olusturuldu: ' + listingId);
 
