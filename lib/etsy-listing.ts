@@ -102,13 +102,12 @@ export async function updateListingProperty(
   try {
     const token = await getValidEtsyToken(shopKey);
     const shopId = getEtsyShopId(shopKey);
+
+    // Etsy form-encoded API coklu degeri virgullu tek parametre olarak ister
+    // (tekrarli append sadece son degeri aliyordu - craft type bug'inin sebebi)
     const body = new URLSearchParams();
-    for (const v of valueIds) {
-      body.append('value_ids', String(v));
-    }
-    for (const v of values) {
-      body.append('values', v);
-    }
+    body.append('value_ids', valueIds.join(','));
+    body.append('values', values.join(','));
 
     const res = await fetch(
       ETSY_API + '/shops/' + shopId + '/listings/' + listingId + '/properties/' + propertyId,
