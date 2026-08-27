@@ -10,6 +10,9 @@ interface CreateInput {
   description: string;
   tags: string[];
   taxonomyId: number;
+  materials?: string[];
+  styles?: string[];
+  shopSectionId?: number;
 }
 
 export async function findClipArtTaxonomyId(): Promise<number> {
@@ -53,6 +56,21 @@ export async function createDraftListing(input: CreateInput, shopKey: string = '
   body.append('state', 'draft');
   const tagString = input.tags.slice(0, 13).join(',');
   body.append('tags', tagString);
+
+  // Materials - max 13, elle girisle esitlik icin
+  if (input.materials && input.materials.length > 0) {
+    body.append('materials', input.materials.slice(0, 13).join(','));
+  }
+
+  // Styles - max 2, arama sinyali
+  if (input.styles && input.styles.length > 0) {
+    body.append('styles', input.styles.slice(0, 2).join(','));
+  }
+
+  // Shop section - listing magazada dogru rafa otursun
+  if (input.shopSectionId) {
+    body.append('shop_section_id', String(input.shopSectionId));
+  }
 
   const res = await fetch(
     ETSY_API + '/shops/' + shopId + '/listings',
