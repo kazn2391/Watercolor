@@ -30,7 +30,6 @@ export const maxDuration = 300;
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
-// Supabase Storage URL'leri - hem SuzyFlow hem SuzyCard icin ayni dosyalar
 const BONUS_IMAGE_URL = 'https://qugrildnvbvrtxcltefy.supabase.co/storage/v1/object/public/etsy-videos/suzypic.jpg';
 const VIDEO_URL = 'https://qugrildnvbvrtxcltefy.supabase.co/storage/v1/object/public/etsy-videos/suzyflow.mp4';
 
@@ -205,6 +204,7 @@ export async function POST(req: Request) {
   let upscaleImages = false;
   let shopKey: string = 'shop1';
   let productType: 'auto' | 'line_art' = 'auto';
+  let jobId = '';
   try {
     const bodyJson = await req.json();
     driveUrl = bodyJson.driveUrl || '';
@@ -212,6 +212,7 @@ export async function POST(req: Request) {
     upscaleImages = bodyJson.upscaleImages === true;
     shopKey = bodyJson.shopKey === 'shop2' ? 'shop2' : 'shop1';
     productType = bodyJson.productType === 'line_art' ? 'line_art' : 'auto';
+    jobId = typeof bodyJson.jobId === 'string' ? bodyJson.jobId.slice(0, 60) : '';
   } catch (e) {
     return NextResponse.json({ error: 'driveUrl gerekli' }, { status: 400 });
   }
@@ -219,24 +220,71 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'driveUrl bos' }, { status: 400 });
   }
 
+  const db = supabaseAdmin();
   const steps: string[] = [];
   const t0 = Date.now();
   const elapsed = () => Math.round((Date.now() - t0) / 1000) + 's';
 
+  let lastFlush = 0;
+  async function writeJob(patch: Record<string, any>, force: boolean = false) {
+    if (!jobId) return;
+    try {
+      await db.from('etsy_jobs').upsert({
+        id: jobId,
+        steps: steps,
+        updated_at: new Date().toISOString(),
+        ...patch,
+      });
+    } catch (e) {
+      // job yazimi asla ana isi durdurmasin
+    }
+  }
+  function log(msg: string) {
+    steps.push(msg);
+    const now = Date.now();
+    if (jobId && now - lastFlush > 1500) {
+      lastFlush = now;
+      void writeJob({ status: 'running' });
+    }
+  }
+
+  // Job kaydini baslat
+  await writeJob({ status: 'running', result: null, error: null }, true);
+
+  // ===== ERKEN BASLATILAN PARALEL ISLER (hic bir seye bagimli degil) =====
+  const videoPromise = fetchBufferFromUrl(VIDEO_URL)
+    .then((buf) => ({ ok: true as const, buf }))
+    .catch((e: any) => ({ ok: false as const, err: (e.message || '').slice(0, 150) }));
+
+  const bonusPromise = fetchBufferFromUrl(BONUS_IMAGE_URL)
+    .then((buf) => ({ ok: true as const, buf }))
+    .catch((e: any) => ({ ok: false as const, err: (e.message || '').slice(0, 150) }));
+
+  const taxonomyPromise = findClipArtTaxonomyId().catch(() => null);
+
+  const pdfTemplatePromise = db
+    .from('etsy_settings')
+    .select('pdf_template_b64')
+    .eq('id', 1)
+    .single()
+    .then((r) => r.data)
+    .catch(() => null);
+
   try {
     const shopLabel = shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt';
     const productLabel = productType === 'line_art' ? 'Line Art' : 'Auto';
-    steps.push('[' + elapsed() + '] Shop: ' + shopLabel + ' | Tip: ' + productLabel);
+    log('[' + elapsed() + '] Shop: ' + shopLabel + ' | Tip: ' + productLabel);
 
-    steps.push('[' + elapsed() + '] Drive klasoru okunuyor');
+    log('[' + elapsed() + '] Drive klasoru okunuyor');
     const folder = await readDriveFolder(driveUrl);
     if (folder.imageCount === 0) {
+      await writeJob({ status: 'error', error: 'Klasorde resim bulunamadi. Herkese acik mi?' }, true);
       return NextResponse.json(
         { error: 'Klasorde resim bulunamadi. Herkese acik mi?', steps },
         { status: 400 }
       );
     }
-    steps.push('[' + elapsed() + '] ' + folder.imageCount + ' resim, PNG: ' + folder.hasPng + ', JPG: ' + folder.hasJpg + ', PDF: ' + folder.hasPdf + ', PNG subfolder: ' + folder.hasPngSubfolder);
+    log('[' + elapsed() + '] ' + folder.imageCount + ' resim, PNG: ' + folder.hasPng + ', JPG: ' + folder.hasJpg + ', PDF: ' + folder.hasPdf + ', PNG subfolder: ' + folder.hasPngSubfolder);
 
     const top10 = folder.images.slice(0, 10);
 
@@ -246,7 +294,7 @@ export async function POST(req: Request) {
       async (img) => downloadDriveFile(img.id)
     );
     const analyzeBuffers: Buffer[] = analyzeBatch.results.filter((b): b is Buffer => b !== null);
-    steps.push('[' + elapsed() + '] Analiz icin ' + analyzeBuffers.length + ' resim indirildi');
+    log('[' + elapsed() + '] Analiz icin ' + analyzeBuffers.length + ' resim indirildi');
 
     const descBatch = await processBatch(
       analyzeBuffers,
@@ -256,12 +304,13 @@ export async function POST(req: Request) {
     const descs: string[] = descBatch.results.filter((d): d is string => d !== null && d.length > 3);
 
     if (descs.length === 0) {
+      await writeJob({ status: 'error', error: 'Resimler analiz edilemedi.' }, true);
       return NextResponse.json(
         { error: 'Resimler analiz edilemedi.', steps },
         { status: 400 }
       );
     }
-    steps.push('[' + elapsed() + '] Gorseller analiz edildi: ' + descs[0].slice(0, 60));
+    log('[' + elapsed() + '] Gorseller analiz edildi: ' + descs[0].slice(0, 60));
 
     let folderNumber = '';
     let currentFolderName = '';
@@ -272,11 +321,11 @@ export async function POST(req: Request) {
         const numMatch = currentFolderName.match(/^(\d+)/);
         if (numMatch) {
           folderNumber = numMatch[1];
-          steps.push('[' + elapsed() + '] Klasor numarasi: ' + folderNumber);
+          log('[' + elapsed() + '] Klasor numarasi: ' + folderNumber);
         }
       }
     } catch (e: any) {
-      steps.push('Klasor adi okunamadi: ' + (e.message || 'bilinmeyen'));
+      log('Klasor adi okunamadi: ' + (e.message || 'bilinmeyen'));
     }
 
     const needsAllImages = generatePng || upscaleImages;
@@ -294,32 +343,47 @@ export async function POST(req: Request) {
     }
 
     if (remainingIndices.length > 0) {
-      steps.push('[' + elapsed() + '] ' + remainingIndices.length + ' resim paralel indiriliyor');
+      log('[' + elapsed() + '] ' + remainingIndices.length + ' resim paralel indiriliyor');
       const downloadBatch = await processBatch(
         remainingIndices,
-        5,
+        8,
         async (idx) => {
           const buf = await downloadDriveFile(imagesToDownload[idx].id);
           allImageBuffers[idx] = buf;
           return true;
         }
       );
-      const downloadedCount = downloadBatch.results.filter((r) => r === true).length;
-      steps.push('[' + elapsed() + '] ' + downloadedCount + ' resim indirildi, ' + downloadBatch.errors + ' hata');
+      const dlCount = downloadBatch.results.filter((r) => r === true).length;
+      log('[' + elapsed() + '] ' + dlCount + ' resim indirildi, ' + downloadBatch.errors + ' hata');
     }
 
     const downloadedCount = allImageBuffers.filter((b) => b !== null).length;
-    steps.push('[' + elapsed() + '] Toplam ' + downloadedCount + ' resim hazir');
+    log('[' + elapsed() + '] Toplam ' + downloadedCount + ' resim hazir');
 
-    let pngGenerated = false;
-    if (generatePng) {
-      steps.push('[' + elapsed() + '] PNG uretimi baslatildi (paralel)');
+    // ===== SEO + PNG PARALEL (birbirine bagimli degiller) =====
+    // SEO icin PNG durumunu iyimser varsayiyoruz: kullanici PNG istediyse uretilecek
+    const optimisticPngSubfolder = folder.hasPngSubfolder || generatePng;
+
+    const seoPromise = generateEtsySeo({
+      imageDescriptions: descs,
+      fileCount: folder.imageCount,
+      hasPdf: folder.hasPdf,
+      hasPng: folder.hasPng,
+      hasJpg: folder.hasJpg,
+      hasPngSubfolder: optimisticPngSubfolder,
+      folderNumber,
+      productType,
+    });
+
+    const pngPromise = (async (): Promise<boolean> => {
+      if (!generatePng) return false;
+      log('[' + elapsed() + '] PNG uretimi baslatildi (SEO ile paralel)');
       try {
         const parentFolderId = folder.folderId;
         if (!parentFolderId) throw new Error('Folder ID yok');
 
         const pngFolderId = await oauthCreateOrGetSubfolder(parentFolderId, 'Png');
-        steps.push('[' + elapsed() + '] Png alt klasoru hazir');
+        log('[' + elapsed() + '] Png alt klasoru hazir');
 
         const validBuffers: { buf: Buffer; idx: number }[] = [];
         for (let i = 0; i < allImageBuffers.length; i++) {
@@ -337,39 +401,35 @@ export async function POST(req: Request) {
             return true;
           }
         );
-        const pngSuccessCount = pngBatch.results.filter((r) => r === true).length;
-        steps.push('[' + elapsed() + '] PNG sonuc: ' + pngSuccessCount + ' basarili, ' + pngBatch.errors + ' hatali');
-        if (pngSuccessCount > 0) pngGenerated = true;
+        const pngOk = pngBatch.results.filter((r) => r === true).length;
+        log('[' + elapsed() + '] PNG sonuc: ' + pngOk + ' basarili, ' + pngBatch.errors + ' hatali');
+        return pngOk > 0;
       } catch (pngErr: any) {
-        steps.push('PNG uretim HATASI: ' + (pngErr.message || 'bilinmeyen'));
+        log('PNG uretim HATASI: ' + (pngErr.message || 'bilinmeyen'));
+        return false;
       }
+    })();
+
+    const [seo, pngGenerated] = await Promise.all([seoPromise, pngPromise]);
+    log('[' + elapsed() + '] SEO uretildi: ' + seo.title.slice(0, 55));
+
+    if (generatePng && !pngGenerated) {
+      log('UYARI: PNG uretilemedi ama SEO PNG icerebilir - listing metnini kontrol et');
     }
 
     const finalHasPngSubfolder = folder.hasPngSubfolder || pngGenerated;
-
-    const seo = await generateEtsySeo({
-      imageDescriptions: descs,
-      fileCount: folder.imageCount,
-      hasPdf: folder.hasPdf,
-      hasPng: folder.hasPng,
-      hasJpg: folder.hasJpg,
-      hasPngSubfolder: finalHasPngSubfolder,
-      folderNumber,
-      productType,
-    });
-    steps.push('[' + elapsed() + '] SEO uretildi: ' + seo.title.slice(0, 55));
 
     const upscaledBuffers: Buffer[] = new Array(allImageBuffers.length).fill(null);
     let upscaleApplied = false;
 
     if (upscaleImages) {
-      steps.push('[' + elapsed() + '] Upscale baslatildi (paralel, 4032x4032)');
+      log('[' + elapsed() + '] Upscale baslatildi (paralel, 4032x4032)');
       try {
         const parentFolderId = folder.folderId;
         if (!parentFolderId) throw new Error('Folder ID yok');
 
         const baseName = buildBaseNameFromTitle(seo.title);
-        steps.push('[' + elapsed() + '] Yeni isim base: ' + baseName);
+        log('[' + elapsed() + '] Yeni isim base: ' + baseName);
 
         const validBuffers: { buf: Buffer; idx: number }[] = [];
         for (let i = 0; i < allImageBuffers.length; i++) {
@@ -394,47 +454,50 @@ export async function POST(req: Request) {
             }
           }
         );
-        const upscaleSuccessCount = upscaleBatch.results.filter((r) => r === true).length;
-        steps.push('[' + elapsed() + '] Upscale sonuc: ' + upscaleSuccessCount + ' basarili, ' + upscaleBatch.errors + ' hatali');
+        const upOk = upscaleBatch.results.filter((r) => r === true).length;
+        log('[' + elapsed() + '] Upscale sonuc: ' + upOk + ' basarili, ' + upscaleBatch.errors + ' hatali');
         for (let ei = 0; ei < Math.min(3, upscaleErrors.length); ei++) {
-          steps.push('  - ' + upscaleErrors[ei]);
+          log('  - ' + upscaleErrors[ei]);
         }
         if (upscaleErrors.length > 3) {
-          steps.push('  - ... ve ' + (upscaleErrors.length - 3) + ' hata daha');
+          log('  - ... ve ' + (upscaleErrors.length - 3) + ' hata daha');
         }
 
-        if (upscaleSuccessCount === validBuffers.length) {
+        if (upOk === validBuffers.length) {
           try {
             const lowQualityFolderId = await serviceCreateOrGetSubfolder(parentFolderId, 'Low Quality');
-            steps.push('[' + elapsed() + '] Low Quality alt klasoru hazir');
+            log('[' + elapsed() + '] Low Quality alt klasoru hazir');
 
             const moveBatch = await processBatch(
               folder.images,
-              5,
+              8,
               async (img) => {
                 await serviceMoveFile(img.id, parentFolderId, lowQualityFolderId);
                 return true;
               }
             );
-            const moveSuccessCount = moveBatch.results.filter((r) => r === true).length;
-            steps.push('[' + elapsed() + '] Eski dosyalar tasindi: ' + moveSuccessCount + ' basarili, ' + moveBatch.errors + ' hatali');
+            const mvOk = moveBatch.results.filter((r) => r === true).length;
+            log('[' + elapsed() + '] Eski dosyalar tasindi: ' + mvOk + ' basarili, ' + moveBatch.errors + ' hatali');
             upscaleApplied = true;
           } catch (lqErr: any) {
-            steps.push('Low Quality klasor HATASI: ' + (lqErr.message || 'bilinmeyen'));
+            log('Low Quality klasor HATASI: ' + (lqErr.message || 'bilinmeyen'));
             upscaleApplied = true;
           }
         } else {
-          steps.push('UYARI: Upscale tam basarili degil, eski dosyalar tasinmadi');
+          log('UYARI: Upscale tam basarili degil, eski dosyalar tasinmadi');
         }
       } catch (upErr: any) {
-        steps.push('Upscale HATASI: ' + (upErr.message || 'bilinmeyen'));
+        log('Upscale HATASI: ' + (upErr.message || 'bilinmeyen'));
       }
     }
 
-    const taxonomyId = await findClipArtTaxonomyId();
-    steps.push('[' + elapsed() + '] Taxonomy: ' + taxonomyId);
+    const taxonomyId = await taxonomyPromise;
+    if (!taxonomyId) {
+      throw new Error('Taxonomy alinamadi');
+    }
+    log('[' + elapsed() + '] Taxonomy: ' + taxonomyId);
 
-        const isLineArt = productType === 'line_art';
+    const isLineArt = productType === 'line_art';
     const listingId = await createDraftListing({
       title: seo.title,
       description: seo.description,
@@ -447,22 +510,22 @@ export async function POST(req: Request) {
         ? ['Minimalist', 'Whimsical']
         : ['Whimsical', 'Cottagecore'],
     }, shopKey);
-    steps.push('[' + elapsed() + '] Draft olusturuldu: ' + listingId);
+    log('[' + elapsed() + '] Draft olusturuldu: ' + listingId);
 
     const propertyUpdates: Promise<void>[] = [];
 
     propertyUpdates.push(
       updateListingProperty(listingId, PROP_CRAFT, CRAFT_VALUES, CRAFT_NAMES, shopKey)
-        .then((ok) => { steps.push('Craft type: ' + (ok ? 'OK' : 'atlandi')); })
-        .catch(() => { steps.push('Craft type: hata'); })
+        .then((ok) => { log('Craft type: ' + (ok ? 'OK' : 'atlandi')); })
+        .catch(() => { log('Craft type: hata'); })
     );
 
     const subj = SUBJECT_MAP[(seo.artSubject || '').toLowerCase().trim()];
     if (subj) {
       propertyUpdates.push(
         updateListingProperty(listingId, PROP_SUBJECT, [subj], [seo.artSubject], shopKey)
-          .then((ok) => { steps.push('Art subject (' + seo.artSubject + '): ' + (ok ? 'OK' : 'atlandi')); })
-          .catch(() => { steps.push('Art subject: hata'); })
+          .then((ok) => { log('Art subject (' + seo.artSubject + '): ' + (ok ? 'OK' : 'atlandi')); })
+          .catch(() => { log('Art subject: hata'); })
       );
     }
 
@@ -470,8 +533,8 @@ export async function POST(req: Request) {
     if (occ) {
       propertyUpdates.push(
         updateListingProperty(listingId, PROP_OCCASION, [occ], [seo.occasion], shopKey)
-          .then((ok) => { steps.push('Occasion (' + seo.occasion + '): ' + (ok ? 'OK' : 'atlandi')); })
-          .catch(() => { steps.push('Occasion: hata'); })
+          .then((ok) => { log('Occasion (' + seo.occasion + '): ' + (ok ? 'OK' : 'atlandi')); })
+          .catch(() => { log('Occasion: hata'); })
       );
     }
 
@@ -479,21 +542,25 @@ export async function POST(req: Request) {
     if (hol) {
       propertyUpdates.push(
         updateListingProperty(listingId, PROP_HOLIDAY, [hol], [seo.holiday], shopKey)
-          .then((ok) => { steps.push('Holiday (' + seo.holiday + '): ' + (ok ? 'OK' : 'atlandi')); })
-          .catch(() => { steps.push('Holiday: hata'); })
+          .then((ok) => { log('Holiday (' + seo.holiday + '): ' + (ok ? 'OK' : 'atlandi')); })
+          .catch(() => { log('Holiday: hata'); })
       );
     }
 
     await Promise.all(propertyUpdates);
-    steps.push('[' + elapsed() + '] Tum property update tamamlandi');
+    log('[' + elapsed() + '] Tum property update tamamlandi');
 
-    steps.push('[' + elapsed() + '] Etsy resim upload basliyor sirali (' + top10.length + ' resim)');
+    // ===== ETSY RESIM UPLOAD - 2'LI PARALEL, BEKLEMESIZ =====
+    log('[' + elapsed() + '] Etsy resim upload basliyor 2li paralel (' + top10.length + ' resim)');
 
     let etsyImgSuccess = 0;
     let etsyImgFail = 0;
     const etsyErrors: string[] = [];
 
-    for (let i = 0; i < top10.length; i++) {
+    const uploadIndices: number[] = [];
+    for (let i = 0; i < top10.length; i++) uploadIndices.push(i);
+
+    await processBatch(uploadIndices, 2, async (i) => {
       let buf: Buffer | null = null;
 
       if (upscaleApplied && upscaledBuffers[i]) {
@@ -506,14 +573,14 @@ export async function POST(req: Request) {
         } catch (e: any) {
           etsyImgFail++;
           etsyErrors.push('Resim ' + (i + 1) + ' indirilemedi: ' + (e.message || '').slice(0, 80));
-          continue;
+          return false;
         }
       }
 
       if (!buf) {
         etsyImgFail++;
         etsyErrors.push('Resim ' + (i + 1) + ' buffer yok');
-        continue;
+        return false;
       }
 
       const alt = buildAltText(seo.altBase, i + 1, top10.length);
@@ -525,65 +592,60 @@ export async function POST(req: Request) {
         etsyImgFail++;
         etsyErrors.push('Resim ' + (i + 1) + ': ' + result.error.slice(0, 80));
       }
+      return result.success;
+    });
 
-      if (i < top10.length - 1) {
-        await sleep(500);
-      }
-    }
-
-    steps.push('[' + elapsed() + '] Etsy upload sonuc: ' + etsyImgSuccess + '/' + top10.length + ' basarili' + (upscaleApplied ? ' (4032x4032)' : ''));
+    log('[' + elapsed() + '] Etsy upload sonuc: ' + etsyImgSuccess + '/' + top10.length + ' basarili' + (upscaleApplied ? ' (4032x4032)' : ''));
     if (etsyImgFail > 0) {
       for (let i = 0; i < Math.min(3, etsyErrors.length); i++) {
-        steps.push('  - ' + etsyErrors[i]);
+        log('  - ' + etsyErrors[i]);
       }
       if (etsyErrors.length > 3) {
-        steps.push('  - ... ve ' + (etsyErrors.length - 3) + ' hata daha');
+        log('  - ... ve ' + (etsyErrors.length - 3) + ' hata daha');
       }
     }
 
-    // ===== 11. RESIM: BONUS PACK GORSEL =====
-    try {
-      const bonusImgBuf = await fetchBufferFromUrl(BONUS_IMAGE_URL);
+    // ===== 11. RESIM: BONUS PACK (erken indirilmisti) =====
+    const bonusRes = await bonusPromise;
+    if (bonusRes.ok) {
       const bonusAlt = '100 plus bonus pack included free gift watercolor clipart designs';
-      const bonusResult = await uploadListingImageWithRetry(listingId, bonusImgBuf, 11, bonusAlt, shopKey, 3);
+      const bonusResult = await uploadListingImageWithRetry(listingId, bonusRes.buf, 11, bonusAlt, shopKey, 3);
       if (bonusResult.success) {
-        steps.push('[' + elapsed() + '] 11. resim (Bonus Pack) yuklendi');
+        log('[' + elapsed() + '] 11. resim (Bonus Pack) yuklendi');
       } else {
-        steps.push('11. resim HATASI: ' + bonusResult.error);
+        log('11. resim HATASI: ' + bonusResult.error);
       }
-    } catch (bonusErr: any) {
-      steps.push('11. resim fetch HATASI: ' + (bonusErr.message || 'bilinmeyen').slice(0, 150));
+    } else {
+      log('11. resim fetch HATASI: ' + bonusRes.err);
     }
 
-    // ===== VIDEO YUKLE =====
-    try {
-      steps.push('[' + elapsed() + '] Video indiriliyor');
-      const videoBuf = await fetchBufferFromUrl(VIDEO_URL);
-      steps.push('[' + elapsed() + '] Video indirildi: ' + Math.round(videoBuf.length / 1024) + ' KB');
-      await uploadListingVideo(listingId, videoBuf, 'listing-video.mp4', shopKey);
-      steps.push('[' + elapsed() + '] Video Etsy\'ye yuklendi');
-    } catch (videoErr: any) {
-      steps.push('Video HATASI: ' + (videoErr.message || 'bilinmeyen').slice(0, 200));
+    // ===== VIDEO (erken indirilmisti) =====
+    const videoRes = await videoPromise;
+    if (videoRes.ok) {
+      try {
+        log('[' + elapsed() + '] Video hazir: ' + Math.round(videoRes.buf.length / 1024) + ' KB');
+        await uploadListingVideo(listingId, videoRes.buf, 'listing-video.mp4', shopKey);
+        log('[' + elapsed() + '] Video Etsy\'ye yuklendi');
+      } catch (videoErr: any) {
+        log('Video HATASI: ' + (videoErr.message || 'bilinmeyen').slice(0, 200));
+      }
+    } else {
+      log('Video fetch HATASI: ' + videoRes.err);
     }
 
-    const db = supabaseAdmin();
-    const { data: tplRow } = await db
-      .from('etsy_settings')
-      .select('pdf_template_b64')
-      .eq('id', 1)
-      .single();
-
+    // ===== PDF (sablon erken cekilmisti) =====
+    const tplRow = await pdfTemplatePromise;
     if (tplRow && tplRow.pdf_template_b64) {
       try {
         const tplBuf = Buffer.from(tplRow.pdf_template_b64, 'base64');
         const newPdf = await rewritePdfDownloadLink(tplBuf, driveUrl);
         await uploadListingFile(listingId, newPdf, 'download.pdf', shopKey);
-        steps.push('[' + elapsed() + '] PDF link degistirildi ve yuklendi');
+        log('[' + elapsed() + '] PDF link degistirildi ve yuklendi');
       } catch (pdfErr: any) {
-        steps.push('PDF HATASI: ' + pdfErr.message);
+        log('PDF HATASI: ' + pdfErr.message);
       }
     } else {
-      steps.push('UYARI: PDF sablonu yok');
+      log('UYARI: PDF sablonu yok');
     }
 
     try {
@@ -593,24 +655,28 @@ export async function POST(req: Request) {
           ? folderNumber + ' - ' + seo.title
           : seo.title;
         await renameDriveFolder(folderId, newFolderName);
-        steps.push('[' + elapsed() + '] Drive klasor adi guncellendi');
+        log('[' + elapsed() + '] Drive klasor adi guncellendi');
       }
     } catch (renameErr: any) {
-      steps.push('Drive rename HATASI: ' + renameErr.message);
+      log('Drive rename HATASI: ' + renameErr.message);
     }
 
-    steps.push('[' + elapsed() + '] TAMAMLANDI');
+    log('[' + elapsed() + '] TAMAMLANDI');
 
     const shopUrlSlug = shopKey === 'shop2' ? 'SuzyCardPrints' : 'me';
-    return NextResponse.json({
+    const payload = {
       success: true,
       listingId,
       shop: shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt',
       etsyEditUrl: 'https://www.etsy.com/your/shops/' + shopUrlSlug + '/listing-editor/edit/' + listingId,
       seo,
       steps,
-    });
+    };
+
+    await writeJob({ status: 'done', result: payload }, true);
+    return NextResponse.json(payload);
   } catch (err: any) {
+    await writeJob({ status: 'error', error: err.message }, true);
     return NextResponse.json({ error: err.message, steps }, { status: 500 });
   }
 }
