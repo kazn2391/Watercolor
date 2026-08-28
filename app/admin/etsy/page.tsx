@@ -15,6 +15,7 @@ export default function EtsyAdminPanel() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const finalizeSentRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -48,6 +49,7 @@ export default function EtsyAdminPanel() {
 
   function startPolling(jobId: string, pwd: string) {
     stopPolling();
+    finalizeSentRef.current = false;
 
     const tick = async () => {
       try {
@@ -68,7 +70,12 @@ export default function EtsyAdminPanel() {
 
         if (data.status === 'done') {
           setInfo('');
-          setResult(data.result ? { ...data.result, steps: data.steps } : { success: true, steps: data.steps });
+          setError('');
+          setResult(
+            data.result
+              ? { ...data.result, steps: data.steps }
+              : { success: true, steps: data.steps }
+          );
           setDriveUrl('');
           finishJob();
           return;
@@ -82,12 +89,33 @@ export default function EtsyAdminPanel() {
           return;
         }
 
-        // running / finalizing - sunucu limitine takilip sessizce olduyse yakala
+        // Asama 2'ye gecis: prepare tetikleyemediyse panel tetikler.
+        // Sunucudaki kilit (status=finalizing sarti) cift calismayi onler.
+        if (data.status === 'finalizing' && !finalizeSentRef.current) {
+          finalizeSentRef.current = true;
+          setInfo('Asama 2 baslatiliyor (Etsy islemleri)...');
+          try {
+            await fetch('/api/etsy/finalize?key=' + encodeURIComponent(pwd), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jobId }),
+            });
+          } catch (e) {
+            // baglanti kopabilir, is sunucuda devam eder
+          }
+          return;
+        }
+
+        if (data.status === 'finalizing_run') {
+          setInfo('Asama 2 calisiyor - Etsy islemleri suruyor...');
+        }
+
+        // Sunucu limitine takilip sessizce olduyse yakala
         if (data.updatedAt) {
           const age = Date.now() - new Date(data.updatedAt).getTime();
-          if (age > 6 * 60 * 1000) {
+          if (age > 10 * 60 * 1000) {
             setInfo('');
-            setError('Islem 6 dakikadir guncellenmiyor - sunucu limitine takilmis olabilir. Steps loguna bak, Etsy draftlari kontrol et.');
+            setError('Islem 10 dakikadir guncellenmiyor - sunucu limitine takilmis olabilir. Steps loguna bak, Etsy draftlari kontrol et.');
             finishJob();
             return;
           }
@@ -127,8 +155,8 @@ export default function EtsyAdminPanel() {
         if (data.steps) setResult({ steps: data.steps });
         finishJob();
       } else {
-        setInfo('Hazirlik tamam - Etsy asamasi arka planda suruyor, adimlar akmaya devam edecek...');
-        // finishJob YOK - polling isi bitirecek (done/error gelince kapanir)
+        setInfo('Hazirlik tamam - Etsy asamasi arka planda suruyor...');
+        // finishJob YOK - polling isi bitirecek
       }
     } catch (e: any) {
       // Baglanti koptu (telefon kilitlendi vs) - is sunucuda devam ediyor
