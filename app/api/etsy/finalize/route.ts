@@ -197,8 +197,9 @@ export async function POST(req: Request) {
     }
   })();
 
-  try {
-    log('[' + elapsed() + '] ASAMA 2 basladi - Etsy islemleri');
+  const heartbeat = setInterval(() => {
+    void writeJob({ status: 'finalizing_run' });
+  }, 20000);
 
     // Klasoru yeniden oku (upscale sonrasi guncel hal)
     const folder = await readDriveFolder(driveUrl);
@@ -339,6 +340,7 @@ export async function POST(req: Request) {
       log('Drive rename HATASI: ' + (e.message || '').slice(0, 100));
     }
 
+      clearInterval(heartbeat);
     log('[' + elapsed() + '] TAMAMLANDI');
 
     const shopUrlSlug = shopKey === 'shop2' ? 'SuzyCardPrints' : 'me';
@@ -353,6 +355,7 @@ export async function POST(req: Request) {
     await writeJob({ status: 'done', result: payload });
     return NextResponse.json(payload);
   } catch (err: any) {
+    clearInterval(heartbeat);
     await writeJob({ status: 'error', error: err.message });
     return NextResponse.json({ error: err.message, steps }, { status: 500 });
   }
