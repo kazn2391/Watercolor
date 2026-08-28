@@ -82,7 +82,7 @@ export default function EtsyAdminPanel() {
           return;
         }
 
-        // running - sunucu limitine takilip sessizce olduyse yakala
+        // running / finalizing - sunucu limitine takilip sessizce olduyse yakala
         if (data.updatedAt) {
           const age = Date.now() - new Date(data.updatedAt).getTime();
           if (age > 6 * 60 * 1000) {
@@ -116,7 +116,7 @@ export default function EtsyAdminPanel() {
     startPolling(jobId, password);
 
     try {
-      const res = await fetch('/api/etsy/create-draft?key=' + encodeURIComponent(password), {
+      const res = await fetch('/api/etsy/prepare?key=' + encodeURIComponent(password), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ driveUrl, generatePng, upscaleImages, shopKey, productType, jobId }),
@@ -127,9 +127,8 @@ export default function EtsyAdminPanel() {
         if (data.steps) setResult({ steps: data.steps });
         finishJob();
       } else {
-        setResult(data);
-        setDriveUrl('');
-        finishJob();
+        setInfo('Hazirlik tamam - Etsy asamasi arka planda suruyor, adimlar akmaya devam edecek...');
+        // finishJob YOK - polling isi bitirecek (done/error gelince kapanir)
       }
     } catch (e: any) {
       // Baglanti koptu (telefon kilitlendi vs) - is sunucuda devam ediyor
