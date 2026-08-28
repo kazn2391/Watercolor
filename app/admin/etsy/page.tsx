@@ -15,7 +15,6 @@ export default function EtsyAdminPanel() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const finalizeSentRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -49,11 +48,11 @@ export default function EtsyAdminPanel() {
 
   function startPolling(jobId: string, pwd: string) {
     stopPolling();
-    finalizeSentRef.current = false;
 
     const tick = async () => {
       try {
-              const res = await fetch('/api/etsy/create-draft?key=' + encodeURIComponent(password), {
+        const res = await fetch(
+          '/api/etsy/job-status?key=' + encodeURIComponent(pwd) + '&id=' + encodeURIComponent(jobId)
         );
         if (!res.ok) return;
         const data = await res.json();
@@ -88,33 +87,12 @@ export default function EtsyAdminPanel() {
           return;
         }
 
-        // Asama 2'ye gecis: prepare tetikleyemediyse panel tetikler.
-        // Sunucudaki kilit (status=finalizing sarti) cift calismayi onler.
-        if (data.status === 'finalizing' && !finalizeSentRef.current) {
-          finalizeSentRef.current = true;
-          setInfo('Asama 2 baslatiliyor (Etsy islemleri)...');
-          try {
-            await fetch('/api/etsy/finalize?key=' + encodeURIComponent(pwd), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jobId }),
-            });
-          } catch (e) {
-            // baglanti kopabilir, is sunucuda devam eder
-          }
-          return;
-        }
-
-        if (data.status === 'finalizing_run') {
-          setInfo('Asama 2 calisiyor - Etsy islemleri suruyor...');
-        }
-
-        // Sunucu limitine takilip sessizce olduyse yakala
+        // running - sunucu limitine takilip sessizce olduyse yakala
         if (data.updatedAt) {
           const age = Date.now() - new Date(data.updatedAt).getTime();
-          if (age > 10 * 60 * 1000) {
+          if (age > 8 * 60 * 1000) {
             setInfo('');
-            setError('Islem 10 dakikadir guncellenmiyor - sunucu limitine takilmis olabilir. Steps loguna bak, Etsy draftlari kontrol et.');
+            setError('Islem 8 dakikadir guncellenmiyor - sunucu limitine takilmis olabilir. Steps loguna bak, Etsy draftlari kontrol et.');
             finishJob();
             return;
           }
@@ -143,7 +121,7 @@ export default function EtsyAdminPanel() {
     startPolling(jobId, password);
 
     try {
-      const res = await fetch('/api/etsy/prepare?key=' + encodeURIComponent(password), {
+      const res = await fetch('/api/etsy/create-draft?key=' + encodeURIComponent(password), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ driveUrl, generatePng, upscaleImages, shopKey, productType, jobId }),
@@ -153,7 +131,7 @@ export default function EtsyAdminPanel() {
         setError(data.error || 'Hata');
         if (data.steps) setResult({ steps: data.steps });
         finishJob();
-            } else {
+      } else {
         setResult(data);
         setDriveUrl('');
         finishJob();
