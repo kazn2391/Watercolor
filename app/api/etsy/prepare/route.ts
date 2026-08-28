@@ -62,7 +62,10 @@ async function describeImageBuffer(buf: Buffer): Promise<string> {
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
-            { type: 'text', text: 'Describe this clipart design in one short phrase. Name the exact subject, the art style, and main colors. Max 15 words. Be specific about the subject.' },
+            {
+              type: 'text',
+              text: 'Describe this clipart design in one short phrase. Name the exact subject, the art style, and main colors. Max 15 words. Be specific about the subject.',
+            },
           ],
         },
       ],
@@ -98,9 +101,10 @@ export async function POST(req: Request) {
     upscaleImages = bodyJson.upscaleImages === true;
     shopKey = bodyJson.shopKey === 'shop2' ? 'shop2' : 'shop1';
     productType = bodyJson.productType === 'line_art' ? 'line_art' : 'auto';
-    jobId = typeof bodyJson.jobId === 'string' && bodyJson.jobId
-      ? bodyJson.jobId.slice(0, 60)
-      : 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    jobId =
+      typeof bodyJson.jobId === 'string' && bodyJson.jobId
+        ? bodyJson.jobId.slice(0, 60)
+        : 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   } catch (e) {
     return NextResponse.json({ error: 'driveUrl gerekli' }, { status: 400 });
   }
@@ -132,30 +136,37 @@ export async function POST(req: Request) {
   }
 
   await writeJob({ status: 'running', result: null, error: null, stage1: null });
-    // Uzun batch islemlerinde updated_at donmasin diye kalp atisi
+
+  // Uzun batch islemlerinde updated_at donmasin diye kalp atisi
   const heartbeat = setInterval(() => {
     void writeJob({ status: 'running' });
   }, 20000);
 
   try {
     const shopLabel = shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt';
-        clearInterval(heartbeat);
-    log('[' + elapsed() + '] ASAMA 1 basladi | Shop: ' + shopLabel + ' | Tip: ' + (productType === 'line_art' ? 'Line Art' : 'Auto'));
+    log(
+      '[' + elapsed() + '] ASAMA 1 basladi | Shop: ' + shopLabel +
+      ' | Tip: ' + (productType === 'line_art' ? 'Line Art' : 'Auto')
+    );
 
     const folder = await readDriveFolder(driveUrl);
     if (folder.imageCount === 0) {
+      clearInterval(heartbeat);
       await writeJob({ status: 'error', error: 'Klasorde resim bulunamadi. Herkese acik mi?' });
       return NextResponse.json({ error: 'Klasorde resim bulunamadi', steps }, { status: 400 });
     }
     log('[' + elapsed() + '] ' + folder.imageCount + ' resim bulundu, PNG subfolder: ' + folder.hasPngSubfolder);
 
     // Analiz icin ilk 2 resim
-    const analyzeBatch = await processBatch(folder.images.slice(0, 2), 2, async (img) => downloadDriveFile(img.id));
+    const analyzeBatch = await processBatch(folder.images.slice(0, 2), 2, async (img: any) =>
+      downloadDriveFile(img.id)
+    );
     const analyzeBuffers: Buffer[] = analyzeBatch.results.filter((b): b is Buffer => b !== null);
 
     const descBatch = await processBatch(analyzeBuffers, 2, async (buf) => describeImageBuffer(buf));
     const descs: string[] = descBatch.results.filter((d): d is string => d !== null && d.length > 3);
     if (descs.length === 0) {
+      clearInterval(heartbeat);
       await writeJob({ status: 'error', error: 'Resimler analiz edilemedi.' });
       return NextResponse.json({ error: 'Resimler analiz edilemedi.', steps }, { status: 400 });
     }
@@ -225,7 +236,7 @@ export async function POST(req: Request) {
     });
     log('[' + elapsed() + '] SEO uretildi: ' + seo.title.slice(0, 55));
 
-    // ===== UPSCALE (PNG hala arka planda calisiyor olabilir) =====
+    // ===== UPSCALE =====
     const baseName = buildBaseNameFromTitle(seo.title);
     let upscaleApplied = false;
 
@@ -233,9 +244,10 @@ export async function POST(req: Request) {
       log('[' + elapsed() + '] Upscale basladi (PNG ile paralel, 4032x4032)');
       try {
         if (!folder.folderId) throw new Error('Folder ID yok');
+        const parentId = folder.folderId;
         const upBatch = await processBatch(validBuffers, 5, async (item) => {
           const bigBuf = await upscaleToJpeg(item.buf);
-          await oauthUploadFileToDrive(folder.folderId!, baseName + (item.idx + 1) + '.jpg', bigBuf, 'image/jpeg');
+          await oauthUploadFileToDrive(parentId, baseName + (item.idx + 1) + '.jpg', bigBuf, 'image/jpeg');
           return true;
         });
         const upOk = upBatch.results.filter((r) => r === true).length;
@@ -243,12 +255,15 @@ export async function POST(req: Request) {
 
         if (upOk === validBuffers.length) {
           try {
-            const lqId = await serviceCreateOrGetSubfolder(folder.folderId, 'Low Quality');
-            const mv = await processBatch(folder.images, 8, async (img) => {
-              await serviceMoveFile(img.id, folder.folderId!, lqId);
+            const lqId = await serviceCreateOrGetSubfolder(parentId, 'Low Quality');
+            const mv = await processBatch(folder.images, 8, async (img: any) => {
+              await serviceMoveFile(img.id, parentId, lqId);
               return true;
             });
-            log('[' + elapsed() + '] Eski dosyalar tasindi: ' + mv.results.filter((r) => r === true).length + ' basarili');
+            log(
+              '[' + elapsed() + '] Eski dosyalar tasindi: ' +
+              mv.results.filter((r) => r === true).length + ' basarili'
+            );
             upscaleApplied = true;
           } catch (e: any) {
             log('Low Quality HATASI: ' + (e.message || 'bilinmeyen'));
@@ -277,14 +292,16 @@ export async function POST(req: Request) {
       finalHasPngSubfolder,
     };
 
+    clearInterval(heartbeat);
     log('[' + elapsed() + '] ASAMA 1 tamam - Etsy asamasi tetikleniyor');
     steps.push('─────────────────────');
     await writeJob({ status: 'finalizing', stage1 });
 
-    // Kendi domainimizde finalize'i tetikle - cevabini BEKLEMEDEN
+    // Kendi domainimizde finalize'i tetikle - cevabini beklemeden.
+    // Tetikleme basarisiz olsa bile panel status=finalizing gorunce kendisi tetikler.
     const origin = new URL(req.url).origin;
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const timer = setTimeout(() => ctrl.abort(), 4000);
     try {
       await fetch(origin + '/api/etsy/finalize?key=' + ADMIN_PASSWORD, {
         method: 'POST',
@@ -293,12 +310,12 @@ export async function POST(req: Request) {
         signal: ctrl.signal,
       });
     } catch (e) {
-      // abort beklenen durum - istek gitti, finalize kendi basina calisiyor
+      // abort beklenen durum
     }
     clearTimeout(timer);
 
     return NextResponse.json({ success: true, stage: 'prepare_done', jobId, steps });
-    } catch (err: any) {
+  } catch (err: any) {
     clearInterval(heartbeat);
     await writeJob({ status: 'error', error: err.message });
     return NextResponse.json({ error: err.message, steps }, { status: 500 });
