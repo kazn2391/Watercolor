@@ -155,7 +155,10 @@ export async function POST(req: Request) {
   const row = locked[0] as any;
   const stage1 = row.stage1;
   if (!stage1 || !stage1.seo) {
-    await db.from('etsy_jobs').update({ status: 'error', error: 'stage1 verisi eksik', updated_at: new Date().toISOString() }).eq('id', jobId);
+    await db
+      .from('etsy_jobs')
+      .update({ status: 'error', error: 'stage1 verisi eksik', updated_at: new Date().toISOString() })
+      .eq('id', jobId);
     return NextResponse.json({ error: 'stage1 verisi eksik' }, { status: 400 });
   }
 
@@ -166,11 +169,14 @@ export async function POST(req: Request) {
   let lastFlush = 0;
   async function writeJob(patch: Record<string, any>) {
     try {
-      await db.from('etsy_jobs').update({
-        steps: steps,
-        updated_at: new Date().toISOString(),
-        ...patch,
-      }).eq('id', jobId);
+      await db
+        .from('etsy_jobs')
+        .update({
+          steps: steps,
+          updated_at: new Date().toISOString(),
+          ...patch,
+        })
+        .eq('id', jobId);
     } catch (e) {}
   }
   function log(msg: string) {
@@ -182,11 +188,29 @@ export async function POST(req: Request) {
     }
   }
 
-  const { driveUrl, shopKey, productType, seo, folderNumber, upscaleApplied, baseName, finalHasPngSubfolder } = stage1;
+  const {
+    driveUrl,
+    shopKey,
+    productType,
+    seo,
+    folderNumber,
+    upscaleApplied,
+    baseName,
+    finalHasPngSubfolder,
+  } = stage1;
+
+  // Uzun islemlerde updated_at donmasin diye kalp atisi
+  const heartbeat = setInterval(() => {
+    void writeJob({ status: 'finalizing_run' });
+  }, 20000);
 
   // Erken paralel isler
-  const videoPromise = fetchBufferFromUrl(VIDEO_URL).then((buf) => ({ ok: true as const, buf })).catch((e: any) => ({ ok: false as const, err: (e.message || '').slice(0, 150) }));
-  const bonusPromise = fetchBufferFromUrl(BONUS_IMAGE_URL).then((buf) => ({ ok: true as const, buf })).catch((e: any) => ({ ok: false as const, err: (e.message || '').slice(0, 150) }));
+  const videoPromise = fetchBufferFromUrl(VIDEO_URL)
+    .then((buf) => ({ ok: true as const, buf }))
+    .catch((e: any) => ({ ok: false as const, err: (e.message || '').slice(0, 150) }));
+  const bonusPromise = fetchBufferFromUrl(BONUS_IMAGE_URL)
+    .then((buf) => ({ ok: true as const, buf }))
+    .catch((e: any) => ({ ok: false as const, err: (e.message || '').slice(0, 150) }));
   const taxonomyPromise = findClipArtTaxonomyId().catch(() => null);
   const pdfTemplatePromise = (async () => {
     try {
@@ -197,9 +221,8 @@ export async function POST(req: Request) {
     }
   })();
 
-  const heartbeat = setInterval(() => {
-    void writeJob({ status: 'finalizing_run' });
-  }, 20000);
+  try {
+    log('[' + elapsed() + '] ASAMA 2 basladi - Etsy islemleri');
 
     // Klasoru yeniden oku (upscale sonrasi guncel hal)
     const folder = await readDriveFolder(driveUrl);
@@ -234,54 +257,71 @@ export async function POST(req: Request) {
     if (!taxonomyId) throw new Error('Taxonomy alinamadi');
 
     const isLineArt = productType === 'line_art';
-    const listingId = await createDraftListing({
-      title: seo.title,
-      description: seo.description,
-      tags: seo.tags,
-      taxonomyId,
-      materials: isLineArt
-        ? ['digital file', 'ink', 'line art']
-        : ['digital file', finalHasPngSubfolder ? 'png' : 'jpg', 'watercolor'],
-      styles: isLineArt
-        ? ['Minimalist', 'Whimsical']
-        : ['Whimsical', 'Cottagecore'],
-    }, shopKey);
+    const listingId = await createDraftListing(
+      {
+        title: seo.title,
+        description: seo.description,
+        tags: seo.tags,
+        taxonomyId,
+        materials: isLineArt
+          ? ['digital file', 'ink', 'line art']
+          : ['digital file', finalHasPngSubfolder ? 'png' : 'jpg', 'watercolor'],
+        styles: isLineArt ? ['Minimalist', 'Whimsical'] : ['Whimsical', 'Cottagecore'],
+      },
+      shopKey
+    );
     log('[' + elapsed() + '] Draft olusturuldu: ' + listingId);
 
     const propertyUpdates: Promise<void>[] = [];
     propertyUpdates.push(
       updateListingProperty(listingId, PROP_CRAFT, CRAFT_VALUES, CRAFT_NAMES, shopKey)
-        .then((ok) => { log('Craft type: ' + (ok ? 'OK' : 'atlandi')); })
-        .catch(() => { log('Craft type: hata'); })
+        .then((ok) => {
+          log('Craft type: ' + (ok ? 'OK' : 'atlandi'));
+        })
+        .catch(() => {
+          log('Craft type: hata');
+        })
     );
     const subj = SUBJECT_MAP[(seo.artSubject || '').toLowerCase().trim()];
     if (subj) {
       propertyUpdates.push(
         updateListingProperty(listingId, PROP_SUBJECT, [subj], [seo.artSubject], shopKey)
-          .then((ok) => { log('Art subject: ' + (ok ? 'OK' : 'atlandi')); })
-          .catch(() => { log('Art subject: hata'); })
+          .then((ok) => {
+            log('Art subject: ' + (ok ? 'OK' : 'atlandi'));
+          })
+          .catch(() => {
+            log('Art subject: hata');
+          })
       );
     }
     const occ = OCCASION_MAP[(seo.occasion || '').toLowerCase().trim()];
     if (occ) {
       propertyUpdates.push(
         updateListingProperty(listingId, PROP_OCCASION, [occ], [seo.occasion], shopKey)
-          .then((ok) => { log('Occasion: ' + (ok ? 'OK' : 'atlandi')); })
-          .catch(() => { log('Occasion: hata'); })
+          .then((ok) => {
+            log('Occasion: ' + (ok ? 'OK' : 'atlandi'));
+          })
+          .catch(() => {
+            log('Occasion: hata');
+          })
       );
     }
     const hol = HOLIDAY_MAP[(seo.holiday || '').toLowerCase().trim()];
     if (hol) {
       propertyUpdates.push(
         updateListingProperty(listingId, PROP_HOLIDAY, [hol], [seo.holiday], shopKey)
-          .then((ok) => { log('Holiday: ' + (ok ? 'OK' : 'atlandi')); })
-          .catch(() => { log('Holiday: hata'); })
+          .then((ok) => {
+            log('Holiday: ' + (ok ? 'OK' : 'atlandi'));
+          })
+          .catch(() => {
+            log('Holiday: hata');
+          })
       );
     }
     await Promise.all(propertyUpdates);
     log('[' + elapsed() + '] Property update tamam');
 
-    // Etsy resim upload - SIRALI (Etsy paralel kabul etmiyor)
+    // Etsy resim upload - SIRALI (Etsy paralel kabul etmiyor, listing kilitleniyor)
     let ok10 = 0;
     let fail10 = 0;
     const errs: string[] = [];
@@ -294,8 +334,9 @@ export async function POST(req: Request) {
       }
       const alt = buildAltText(seo.altBase, i + 1, top10.length);
       const r = await uploadListingImageWithRetry(listingId, buf, i + 1, alt, shopKey, 3);
-      if (r.success) ok10++;
-      else {
+      if (r.success) {
+        ok10++;
+      } else {
         fail10++;
         errs.push('Resim ' + (i + 1) + ': ' + r.error.slice(0, 80));
       }
@@ -305,7 +346,14 @@ export async function POST(req: Request) {
 
     const bonusRes = await bonusPromise;
     if (bonusRes.ok) {
-      const r = await uploadListingImageWithRetry(listingId, bonusRes.buf, 11, '100 plus bonus pack included free gift watercolor clipart designs', shopKey, 3);
+      const r = await uploadListingImageWithRetry(
+        listingId,
+        bonusRes.buf,
+        11,
+        '100 plus bonus pack included free gift watercolor clipart designs',
+        shopKey,
+        3
+      );
       log(r.success ? '[' + elapsed() + '] Bonus resim yuklendi' : 'Bonus resim HATASI: ' + r.error);
     }
 
@@ -322,7 +370,10 @@ export async function POST(req: Request) {
     const tplRow = await pdfTemplatePromise;
     if (tplRow && tplRow.pdf_template_b64) {
       try {
-        const newPdf = await rewritePdfDownloadLink(Buffer.from(tplRow.pdf_template_b64, 'base64'), driveUrl);
+        const newPdf = await rewritePdfDownloadLink(
+          Buffer.from(tplRow.pdf_template_b64, 'base64'),
+          driveUrl
+        );
         await uploadListingFile(listingId, newPdf, 'download.pdf', shopKey);
         log('[' + elapsed() + '] PDF yuklendi');
       } catch (e: any) {
@@ -340,7 +391,7 @@ export async function POST(req: Request) {
       log('Drive rename HATASI: ' + (e.message || '').slice(0, 100));
     }
 
-      clearInterval(heartbeat);
+    clearInterval(heartbeat);
     log('[' + elapsed() + '] TAMAMLANDI');
 
     const shopUrlSlug = shopKey === 'shop2' ? 'SuzyCardPrints' : 'me';
