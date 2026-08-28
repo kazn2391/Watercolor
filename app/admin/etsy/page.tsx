@@ -53,8 +53,7 @@ export default function EtsyAdminPanel() {
 
     const tick = async () => {
       try {
-        const res = await fetch(
-          '/api/etsy/job-status?key=' + encodeURIComponent(pwd) + '&id=' + encodeURIComponent(jobId)
+              const res = await fetch('/api/etsy/create-draft?key=' + encodeURIComponent(password), {
         );
         if (!res.ok) return;
         const data = await res.json();
@@ -154,9 +153,10 @@ export default function EtsyAdminPanel() {
         setError(data.error || 'Hata');
         if (data.steps) setResult({ steps: data.steps });
         finishJob();
-      } else {
-        setInfo('Hazirlik tamam - Etsy asamasi arka planda suruyor...');
-        // finishJob YOK - polling isi bitirecek
+            } else {
+        setResult(data);
+        setDriveUrl('');
+        finishJob();
       }
     } catch (e: any) {
       // Baglanti koptu (telefon kilitlendi vs) - is sunucuda devam ediyor
