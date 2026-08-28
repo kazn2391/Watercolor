@@ -132,9 +132,14 @@ export async function POST(req: Request) {
   }
 
   await writeJob({ status: 'running', result: null, error: null, stage1: null });
+    // Uzun batch islemlerinde updated_at donmasin diye kalp atisi
+  const heartbeat = setInterval(() => {
+    void writeJob({ status: 'running' });
+  }, 20000);
 
   try {
     const shopLabel = shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt';
+        clearInterval(heartbeat);
     log('[' + elapsed() + '] ASAMA 1 basladi | Shop: ' + shopLabel + ' | Tip: ' + (productType === 'line_art' ? 'Line Art' : 'Auto'));
 
     const folder = await readDriveFolder(driveUrl);
@@ -293,7 +298,8 @@ export async function POST(req: Request) {
     clearTimeout(timer);
 
     return NextResponse.json({ success: true, stage: 'prepare_done', jobId, steps });
-  } catch (err: any) {
+    } catch (err: any) {
+    clearInterval(heartbeat);
     await writeJob({ status: 'error', error: err.message });
     return NextResponse.json({ error: err.message, steps }, { status: 500 });
   }
