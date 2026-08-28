@@ -167,6 +167,7 @@ export async function POST(req: Request) {
   const elapsed = () => Math.round((Date.now() - t0) / 1000) + 's';
 
   let lastFlush = 0;
+  let flushEnabled = true;
   async function writeJob(patch: Record<string, any>) {
     try {
       await db
@@ -181,6 +182,7 @@ export async function POST(req: Request) {
   }
   function log(msg: string) {
     steps.push(msg);
+    if (!flushEnabled) return;
     const now = Date.now();
     if (now - lastFlush > 1500) {
       lastFlush = now;
@@ -201,7 +203,7 @@ export async function POST(req: Request) {
 
   // Uzun islemlerde updated_at donmasin diye kalp atisi
   const heartbeat = setInterval(() => {
-    void writeJob({ status: 'finalizing_run' });
+    if (flushEnabled) void writeJob({ status: 'finalizing_run' });
   }, 20000);
 
   // Erken paralel isler
@@ -392,7 +394,10 @@ export async function POST(req: Request) {
     }
 
     clearInterval(heartbeat);
-    log('[' + elapsed() + '] TAMAMLANDI');
+    flushEnabled = false;
+    steps.push('[' + elapsed() + '] TAMAMLANDI');
+    // Ucusta olan flush yazimlarinin bitmesini bekle
+    await new Promise((r) => setTimeout(r, 600));
 
     const shopUrlSlug = shopKey === 'shop2' ? 'SuzyCardPrints' : 'me';
     const payload = {
@@ -407,6 +412,8 @@ export async function POST(req: Request) {
     return NextResponse.json(payload);
   } catch (err: any) {
     clearInterval(heartbeat);
+    flushEnabled = false;
+    await new Promise((r) => setTimeout(r, 600));
     await writeJob({ status: 'error', error: err.message });
     return NextResponse.json({ error: err.message, steps }, { status: 500 });
   }
