@@ -116,6 +116,7 @@ export async function POST(req: Request) {
   const elapsed = () => Math.round((Date.now() - t0) / 1000) + 's';
 
   let lastFlush = 0;
+  let flushEnabled = true;
   async function writeJob(patch: Record<string, any>) {
     try {
       await db.from('etsy_jobs').upsert({
@@ -128,6 +129,7 @@ export async function POST(req: Request) {
   }
   function log(msg: string) {
     steps.push(msg);
+    if (!flushEnabled) return;
     const now = Date.now();
     if (now - lastFlush > 1500) {
       lastFlush = now;
@@ -139,7 +141,7 @@ export async function POST(req: Request) {
 
   // Uzun batch islemlerinde updated_at donmasin diye kalp atisi
   const heartbeat = setInterval(() => {
-    void writeJob({ status: 'running' });
+    if (flushEnabled) void writeJob({ status: 'running' });
   }, 20000);
 
   try {
@@ -152,6 +154,8 @@ export async function POST(req: Request) {
     const folder = await readDriveFolder(driveUrl);
     if (folder.imageCount === 0) {
       clearInterval(heartbeat);
+      flushEnabled = false;
+      await new Promise((r) => setTimeout(r, 600));
       await writeJob({ status: 'error', error: 'Klasorde resim bulunamadi. Herkese acik mi?' });
       return NextResponse.json({ error: 'Klasorde resim bulunamadi', steps }, { status: 400 });
     }
@@ -167,6 +171,8 @@ export async function POST(req: Request) {
     const descs: string[] = descBatch.results.filter((d): d is string => d !== null && d.length > 3);
     if (descs.length === 0) {
       clearInterval(heartbeat);
+      flushEnabled = false;
+      await new Promise((r) => setTimeout(r, 600));
       await writeJob({ status: 'error', error: 'Resimler analiz edilemedi.' });
       return NextResponse.json({ error: 'Resimler analiz edilemedi.', steps }, { status: 400 });
     }
@@ -293,8 +299,11 @@ export async function POST(req: Request) {
     };
 
     clearInterval(heartbeat);
-    log('[' + elapsed() + '] ASAMA 1 tamam - Etsy asamasi tetikleniyor');
+    flushEnabled = false;
+    steps.push('[' + elapsed() + '] ASAMA 1 tamam - Etsy asamasi tetikleniyor');
     steps.push('─────────────────────');
+    // Ucusta olan flush yazimlarinin bitmesini bekle (yoksa status'u ezerler)
+    await new Promise((r) => setTimeout(r, 600));
     await writeJob({ status: 'finalizing', stage1 });
 
     // Kendi domainimizde finalize'i tetikle - cevabini beklemeden.
@@ -317,6 +326,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, stage: 'prepare_done', jobId, steps });
   } catch (err: any) {
     clearInterval(heartbeat);
+    flushEnabled = false;
+    await new Promise((r) => setTimeout(r, 600));
     await writeJob({ status: 'error', error: err.message });
     return NextResponse.json({ error: err.message, steps }, { status: 500 });
   }
