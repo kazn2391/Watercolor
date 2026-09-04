@@ -1,4 +1,4 @@
-const ETSY_API_BASE = 'https://openapi.etsy.com/v3/application';
+const ETSY_API_BASE = 'https://api.etsy.com/v3/application';
 
 export interface EtsyListing {
   listing_id: number;
