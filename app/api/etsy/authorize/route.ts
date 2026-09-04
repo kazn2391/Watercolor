@@ -38,7 +38,12 @@ export async function GET(req: Request) {
   await db.from('etsy_oauth_pending').delete().lt('created_at', cutoff);
 
   const redirectUri = SITE_URL + '/api/etsy/callback';
-  const scope = 'listings_r listings_w';
+
+  // listings_r/listings_w: draft olusturma ve listing okuma (mevcut, korunuyor)
+  // shops_r/shops_w: shop endpointleri - senkron icin gerekli
+  // email_r: /users/me teshis cagrisi icin
+  const scope = 'listings_r listings_w shops_r shops_w email_r';
+
   const apiKey = process.env.ETSY_API_KEY || '';
 
   const authUrl =
