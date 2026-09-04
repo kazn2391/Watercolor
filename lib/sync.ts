@@ -17,9 +17,10 @@ export interface SyncResult {
   errorMessages: string[];
 }
 
-const BATCH_LIMIT = 200;
+const BATCH_LIMIT = 100;
+const DEFAULT_BUDGET_MS = 230000; // 300s limitin altinda guvenli pay
 
-export async function fullSync(offset = 0): Promise<SyncResult> {
+export async function fullSync(offset = 0, budgetMs = DEFAULT_BUDGET_MS): Promise<SyncResult> {
   const start = Date.now();
   const db = supabaseAdmin();
 
@@ -34,62 +35,81 @@ export async function fullSync(offset = 0): Promise<SyncResult> {
   let updated = 0;
   let skipped = 0;
   let errors = 0;
+  let processed = 0;
   const errorMessages: string[] = [];
 
   try {
+    // Listeyi SADECE BIR KEZ cek, sonra batch batch isle
     const allListings = await etsy.getAllActiveListingsLight();
     const total = allListings.length;
-
-    const slice = allListings.slice(offset, offset + BATCH_LIMIT);
-    const sliceIds = slice.map((l) => l.listing_id);
-
-    const enriched = await etsy.getListingsByIds(sliceIds);
-    const enrichedMap = new Map<number, EtsyListing>();
-    for (const e of enriched) enrichedMap.set(e.listing_id, e);
 
     const { data: categories } = await db.from('categories').select('id, slug');
     const slugToCategoryId = new Map<string, number>();
     for (const cat of categories || []) slugToCategoryId.set(cat.slug, cat.id);
 
-    for (const l of slice) {
+    let cursor = offset;
+
+    // ZAMAN BUTCESI DOLANA KADAR BATCH BATCH DEVAM ET
+    while (cursor < total && Date.now() - start < budgetMs) {
+      const slice = allListings.slice(cursor, cursor + BATCH_LIMIT);
+      if (slice.length === 0) break;
+
+      const sliceIds = slice.map((l) => l.listing_id);
+
+      let enrichedMap = new Map<number, EtsyListing>();
       try {
-        const e = enrichedMap.get(l.listing_id);
-        const withImages = e && e.images && e.images.length > 0 ? { ...l, images: e.images } : l;
-        const result = await upsertListing(withImages, slugToCategoryId);
-        if (result === 'added') added++;
-        else if (result === 'updated') updated++;
+        const enriched = await etsy.getListingsByIds(sliceIds);
+        for (const e of enriched) enrichedMap.set(e.listing_id, e);
       } catch (err: any) {
-        errors++;
-        if (errorMessages.length < 15) errorMessages.push('Listing ' + l.listing_id + ': ' + err.message);
+        if (errorMessages.length < 15) {
+          errorMessages.push('Batch enrich (offset ' + cursor + '): ' + err.message);
+        }
       }
+
+      for (const l of slice) {
+        try {
+          const e = enrichedMap.get(l.listing_id);
+          const withImages = e && e.images && e.images.length > 0 ? { ...l, images: e.images } : l;
+          const result = await upsertListing(withImages, slugToCategoryId);
+          if (result === 'added') added++;
+          else if (result === 'updated') updated++;
+        } catch (err: any) {
+          errors++;
+          if (errorMessages.length < 15) {
+            errorMessages.push('Listing ' + l.listing_id + ': ' + err.message);
+          }
+        }
+      }
+
+      cursor += slice.length;
+      processed += slice.length;
     }
 
     await updateCategoryCounts(db);
 
-    const nextOffset = offset + BATCH_LIMIT;
-    const hasMore = nextOffset < total;
+    const hasMore = cursor < total;
 
     const result: SyncResult = {
       total,
-      processed: slice.length,
+      processed,
       added,
       updated,
       skipped,
       errors,
       hasMore,
-      nextOffset: hasMore ? nextOffset : 0,
+      nextOffset: hasMore ? cursor : 0,
       durationMs: Date.now() - start,
       errorMessages,
     };
 
     if (logId) {
       await db.from('sync_logs').update({
-        status: errors > slice.length / 2 ? 'failed' : 'success',
+        status: errors > processed / 2 ? 'failed' : 'success',
         listings_added: added,
         listings_updated: updated,
         completed_at: new Date().toISOString(),
         error_message: hasMore
-          ? 'Partial OK. Next offset: ' + nextOffset + ' / ' + total
+          ? 'Partial OK. Next offset: ' + cursor + ' / ' + total
           : 'Full sync complete: ' + total + ' listings',
       }).eq('id', logId);
     }
