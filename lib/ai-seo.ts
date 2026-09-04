@@ -65,7 +65,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
 
   const lineArtVibeOverride = isLineArt
     ? 'CRITICAL LINE ART MODE OVERRIDE: This is a LINE ART / ink illustration bundle, NOT watercolor. ' +
-      'Use vibe words from: Whimsical, Minimalist, Sketchy, Hand-Drawn, Fine Line, Boho, Mystical, Cute, Delicate, Tattoo Flash. ' +
+      'Use vibe words from: Minimalist, Sketchy, Hand-Drawn, Fine Line, Bold Line, Boho, Mystical, Delicate, Tattoo Flash, Whimsical, Gothic, Folk. ' +
       'NEVER use "watercolor" anywhere (wrong product). ' +
       'Tag replacements: replace "watercolor {subject}" with "line art {subject}", replace "watercolor clipart" with "line art clipart". ' +
       'Replace "scrapbooking, sublimation" focus with "tattoo design, junk journal, planner stickers, sticker sheets, card making". ' +
@@ -88,103 +88,133 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     isLineArt
       ? 'Your buyers for LINE ART are 4 different personas - your SEO must hit ALL of them:'
       : 'Your buyers are 4 personas - your SEO must hit ALL of them with different keywords:',
-    isLineArt ? '1. TATTOO ARTIST - types "{subject} fine line tattoo" or "{subject} tattoo flash" - wants ready-to-tattoo designs' : '1. CRAFTER MOM - types "cute {subject} clipart watercolor" - wants scrapbook, junk journal, planner',
-    isLineArt ? '2. JUNK JOURNALER - types "{subject} line art junk journal" or "ink illustration ephemera" - wants printable art' : '2. POD/PRINT SELLER - types "{subject} png commercial use sublimation" - wants t-shirt, mug, sticker',
+    isLineArt ? '1. TATTOO ARTIST - types "{subject} fine line tattoo" or "{subject} tattoo flash" - wants ready-to-tattoo designs' : '1. CRAFTER MOM - types "{subject} clipart" or "cute {subject} clipart" - wants scrapbook, junk journal, planner',
+    isLineArt ? '2. JUNK JOURNALER - types "{subject} line art junk journal" or "ink illustration ephemera" - wants printable art' : '2. POD/PRINT SELLER - types "{subject} png" or "{subject} sublimation png" - wants t-shirt, mug, tumbler, sticker. THIS PERSONA SEARCHES BY FORMAT: "{theme} png" is one of the highest volume query patterns on Etsy.',
     isLineArt ? '3. PLANNER/STICKER MAKER - types "{subject} line art sticker" or "minimalist {subject}" - wants planner content' : '3. HOBBY ARTIST - types "{subject} illustration digital download" - wants wall art, card making',
-    isLineArt ? '4. NICHE BROWSER - types "minimalist clipart" or "line art clipart" (no subject) - browsing by style' : '4. NICHE BROWSER - types "fantasy clipart" or "boho clipart" (no subject) - browsing by style',
+    isLineArt ? '4. NICHE BROWSER - types "minimalist clipart" or "line art clipart" (no subject) - browsing by style' : '4. STYLE BROWSER - types "{vibe} clipart" e.g. "cottagecore clipart", "quirky clipart", "retro clipart" - browsing by aesthetic, no subject in mind',
 
     '=== CRITICAL TAG RULES (most important section) ===',
     'NEVER use "{subject} jpg" or "jpg clipart" or anything with "jpg" - buyers NEVER search this way.',
     'DO use the format word "png" ONLY if pngBoost is true (transparent PNG actually exists).',
     'For non-PNG listings, replace format tags with niche/style tags or "printable" tags.',
-    'Use "clip art" (with space) in 1-2 tags - this is a different Etsy keyword than "clipart" and has lower competition.',
+    'Use "clip art" (with space) in EXACTLY 1 tag - this is a different Etsy keyword than "clipart" and has lower competition.',
     isLineArt
       ? 'ALWAYS include "line art clipart" as primary tag (this is the core search term for this product).'
-      : 'ALWAYS include "fantasy clipart" or "whimsical clipart" as a CROSS-NICHE tag (this captures style-browsers).',
+      : 'Cross-niche style tag must GENUINELY match the designs. Do not force "fantasy clipart" onto a birthday or kitchen set - pick the style tag that actually fits.',
 
     '=== TITLE FORMULA (HARD LIMIT: max 13 words, max 130 chars) ===',
     'CRITICAL WORD COUNT RULE: Title must have AT MOST 13 words. Count carefully. 14+ words = REJECTED.',
     'A "word" = space-separated token. Numbers count as 1 word. Pipe | is a separator, not a word.',
     '',
-    'STRUCTURE (use 3 slots, NOT 4):',
-    'Slot 1 (3-5 words, MOST IMPORTANT): {number} {Vibe} {Subject} Clipart {Format}',
-    isLineArt
-      ? '  - "Vibe" = Whimsical/Minimalist/Sketchy/Hand-Drawn/Fine Line/Boho/Mystical/Cute'
-      : '  - "Vibe" = pick ONE from this list based on the actual designs you see: Whimsical, Cute, Boho, Cottagecore, Magical, Dreamy, Wildflower, Kawaii, Vintage, Fantasy, Quirky. CHOOSE THE BEST FIT, not the first one. Most designs are WHIMSICAL.',
-    '  - "Format" = "' + formatToken + '"',
+    '*** NEW STRUCTURE - SUBJECT FIRST, CLEAN ENTRY ***',
+    'Slot 1 must be the CLEANEST, most direct match to what a buyer types. No adjectives, no style words.',
+    '',
+    'Slot 1 (3-5 words, MOST IMPORTANT): {number} {Subject} Clipart {Format}',
+    '  - NO vibe word here. NO "Watercolor" here. Just the plain product.',
     '  - MUST start with a NUMBER (count of items: 20, 30, 150, etc.)',
+    '  - "Format" = "' + formatToken + '"',
     isLineArt
-      ? '  - Example: "20 Whimsical Cat Line Art Clipart PNG" (7 words)'
-      : '  - Example: "20 Whimsical Cat Clipart PNG" (5 words)',
-    'Slot 2 (3-4 words): | {Style} {Subject Variation}',
+      ? '  - Example: "30 Cat Clipart PNG" (4 words)'
+      : '  - Example: "30 Cat Clipart PNG" (4 words)',
+    '',
+    'Slot 2 (3-5 words): | {Style words} {Subject Variation}',
     isLineArt
-      ? '  - Example: "Ink Sketch Kitten Design"'
-      : '  - Example: "Watercolor Kitten Design"',
-    'Slot 3 (3-4 words): | {Use-case or Cross-niche}',
+      ? '  - This is where "Line Art" / "Ink" and the vibe word live.\n  - Example: "Fine Line Ink Tattoo Flash"'
+      : '  - This is where "Watercolor" and the vibe word live.\n  - Example: "Watercolor Cottagecore Kitten Bundle"',
+    '',
+    'Slot 3 (2-4 words): | {Use-case or audience}',
     isLineArt
-      ? '  - Example: "Junk Journal Tattoo Design"'
-      : '  - Example: "Scrapbook Junk Journal Crafts"',
+      ? '  - Example: "Junk Journal Planner"'
+      : '  - Example: "Scrapbook Junk Journal"',
     '',
     'EXAMPLES of CORRECT (13 words or less):',
-    '- "20 Whimsical Cat Clipart PNG | Watercolor Kitten Design | Scrapbook Crafts" = 11 words ✓',
-    '- "30 Boho Highland Cow Clipart JPG | Watercolor Folk Art | Junk Journal" = 12 words ✓',
-    '- "100 Happy Birthday Clipart Bundle | Watercolor Whimsical Cake | Card Crafts" = 11 words ✓',
+    isLineArt
+      ? '- "30 Cat Clipart PNG | Fine Line Ink Tattoo Flash | Junk Journal Planner" = 12 words\n- "20 Botanical Clipart PNG | Minimalist Hand Drawn Line Art | Sticker Sheets" = 12 words'
+      : '- "30 Cat Clipart PNG | Watercolor Quirky Kitten Bundle | Scrapbook Junk Journal" = 12 words\n- "25 Highland Cow Clipart PNG | Watercolor Folk Art Farmhouse | Craft Supply" = 12 words\n- "40 Mushroom Clipart PNG | Watercolor Cottagecore Forest Set | Junk Journal" = 11 words',
     '',
-    'EXAMPLES of WRONG (over 13 words):',
-    '- "20 Whimsical Cat Clipart PNG | Cute Watercolor Kitten Design | Fantasy Cat Art Illustrations | Scrapbook Junk Journal" = 17 words ✗',
+    'EXAMPLES of WRONG:',
+    '- "30 Whimsical Cat Clipart PNG | Watercolor Abstract Kitten | Scrapbook Crafts" - vibe word is in Slot 1, must move to Slot 2',
+    '- "20 Cat Clipart PNG | Cute Watercolor Kitten Design | Fantasy Cat Art | Scrapbook Junk Journal" = 16 words, too long',
     '',
-    '🎂 SPECIAL THEME OVERRIDES (USE WHEN APPLICABLE):',
-    '- BIRTHDAY designs (cake, candles, party, balloons, birthday wishes): Title MUST contain "Happy Birthday Clipart" exact phrase. Example: "100 Happy Birthday Clipart Bundle | Watercolor Cake Candles | Cards" (10 words)',
-    '- CHRISTMAS designs: include "Christmas Clipart" + "Watercolor". Example: "30 Christmas Clipart PNG | Watercolor Santa Tree | Holiday Cards"',
-    '- HALLOWEEN: include "Halloween Clipart" + "Watercolor". Example: "25 Halloween Clipart PNG | Watercolor Witch Cat Pumpkin | Spooky"',
-    '- EASTER: include "Easter Clipart" + "Watercolor"',
-    '- WEDDING: include "Wedding Clipart" + "Watercolor"',
-    '- VALENTINE: include "Valentine Clipart" + "Watercolor"',
+    '🎂 SPECIAL THEME OVERRIDES (these change Slot 1):',
+    '- BIRTHDAY designs (cake, candles, party, balloons): Slot 1 MUST contain "Happy Birthday Clipart" exact phrase. Example: "100 Happy Birthday Clipart PNG | Watercolor Cake Candles Bundle | Card Making"',
+    '- CHRISTMAS designs: Slot 1 = "{number} Christmas {Subject} Clipart {Format}". Example: "30 Christmas Cat Clipart PNG | Watercolor Whimsical Santa Kitten | Holiday Cards"',
+    '- HALLOWEEN: Slot 1 = "{number} Halloween {Subject} Clipart {Format}". Example: "25 Halloween Cat Clipart PNG | Watercolor Spooky Witch Kitten | Party Decor"',
+    '- EASTER / WEDDING / VALENTINE / THANKSGIVING: same pattern, holiday word goes in Slot 1 before the subject.',
+    '- Seasonal listings are searched as "{holiday} {subject} clipart" and "{holiday} png" - the holiday word MUST be early.',
     '',
     'CRITICAL RULES (ALL apply):',
     '- MUST start with a number (the design count)',
     '- "Clipart" MUST appear in Slot 1',
-    '- "Watercolor" MUST appear somewhere in title (mandatory keyword)',
-    '- A vibe modifier MUST appear (Whimsical/Cute/Boho/Magical/etc - default Whimsical)',
+    isLineArt
+      ? '- "Line Art" or "Ink" or "Line" MUST appear in Slot 2'
+      : '- "Watercolor" MUST appear in Slot 2 (NOT Slot 1)',
+    '- A vibe modifier MUST appear in Slot 2 (see VIBE SELECTION section - do NOT default to Whimsical)',
     '- Format ("' + formatToken + '") MUST appear in Slot 1',
-    isLineArt ? '- "Line Art" or "Line" or "Ink" MUST appear somewhere in title.' : '',
     '- HARD LIMIT: 13 words max, 130 chars max',
     '- NO emojis, NO ALL-CAPS, NO weird symbols',
     '- Only A-Z, 0-9, spaces, pipes (|), apostrophes',
 
+    isLineArt ? '' : '=== VIBE SELECTION (CRITICAL - READ CAREFULLY) ===',
+    isLineArt ? '' : 'STOP DEFAULTING TO "WHIMSICAL". Whimsical is ONE option among many, not a fallback.',
+    isLineArt ? '' : 'Over-using one vibe word makes the shop look repetitive and wastes cross-niche search traffic.',
+    isLineArt ? '' : 'LOOK at the design descriptions and pick the vibe that a buyer would actually type. Decision guide:',
+    isLineArt ? '' : '- QUIRKY: animals dressed as humans, animals doing human activities (cooking, reading, riding bikes), odd proportions, comic expressions, unexpected pairings, humorous scenes. THIS IS VERY COMMON - use it confidently.',
+    isLineArt ? '' : '- COTTAGECORE: mushrooms, cottages, wildflowers, rural nostalgia, jam jars, gardening, muted sage and cream palette, forest creatures',
+    isLineArt ? '' : '- BOHO: earthy neutral tones, terracotta, pampas grass, arches, desert, macrame, muted browns and rust',
+    isLineArt ? '' : '- CUTE: simple rounded shapes, big eyes, baby animals, pastel, nothing complex or odd',
+    isLineArt ? '' : '- KAWAII: ultra-cute Japanese style, blush cheeks, tiny simple faces, candy colors',
+    isLineArt ? '' : '- VINTAGE: antique, sepia, aged paper, victorian, retro ephemera, faded tones',
+    isLineArt ? '' : '- RETRO: mid century modern, 1970s groovy, bold flat shapes, orange brown mustard palette',
+    isLineArt ? '' : '- FOLK ART: decorative symmetrical patterns, traditional motifs, flat stylised shapes, scandinavian or eastern european feel',
+    isLineArt ? '' : '- FANTASY: dragons, fairies, unicorns, magical creatures, mythical themes',
+    isLineArt ? '' : '- MAGICAL: sparkles, stars, moons, celestial, glowing, mystical light',
+    isLineArt ? '' : '- DREAMY: soft hazy pastel washes, ethereal, gentle gradients, cloud-like',
+    isLineArt ? '' : '- WILDFLOWER: meadow flowers dominate the composition, botanical heavy',
+    isLineArt ? '' : '- GOTHIC: dark moody palette, ravens, skulls, black lace, victorian mourning',
+    isLineArt ? '' : '- FASHION: stylish dressed figures, outfits, accessories, chic women',
+    isLineArt ? '' : '- WHIMSICAL: gentle storybook charm, soft illustrated fairytale feel. USE ONLY when no other vibe above fits better.',
+    isLineArt ? '' : 'Before choosing, ask: "would a buyer searching this vibe word actually expect to see these designs?" If not, pick another.',
+    isLineArt ? '' : 'If designs show anthropomorphic animals with clothing or human activities, QUIRKY is almost always the better choice than Whimsical.',
+
     '=== TAG FORMULA (exactly 13 tags, 20 chars max, NO duplicates, NO "jpg") ===',
 
-    'TIER 1 (positions 1-3): PRIMARY ANCHORS - high-volume direct search',
+    'TIER 1 (positions 1-3): PRIMARY ANCHORS - highest volume direct search',
     isLineArt
       ? '  Position 1: "{subject} clipart" - example: "cat clipart"\n  Position 2: "line art {subject}" - example: "line art cat"\n  Position 3: "{subject} line art" - example: "cat line art"'
-      : '  Position 1: "{subject} clipart" - example: "cat clipart"\n  Position 2: "{vibe} {subject}" - example: "whimsical cat" or "cute cat clipart"\n  Position 3: "watercolor {subject}" - example: "watercolor cat"',
+      : pngBoost
+      ? '  Position 1: "{subject} clipart" - example: "cat clipart"\n  Position 2: "{subject} png" - example: "cat png" (FORMAT SEARCH - very high volume)\n  Position 3: "watercolor {subject}" - example: "watercolor cat"'
+      : '  Position 1: "{subject} clipart" - example: "cat clipart"\n  Position 2: "watercolor {subject}" - example: "watercolor cat"\n  Position 3: "{subject} printable" or "printable {subject}"',
 
-    'TIER 2 (positions 4-6): LONG-TAIL NICHE',
+    'TIER 2 (positions 4-6): LONG-TAIL NICHE - lower competition',
     '  Position 4: "{subject} clip art" (WITH SPACE - secret weapon, low competition)',
     isLineArt
-      ? '  Position 5: "{vibe} {subject} clipart" - example: "minimalist cat clipart"\n  Position 6: "{subject} tattoo" - example: "cat tattoo" or "{subject} planner"'
-      : '  Position 5: "{vibe} {subject} clipart" - example: "boho cat clipart"\n  Position 6: "{subject} {use-case}" - example: "cat scrapbook" or "cat planner"',
+      ? '  Position 5: "{vibe} {subject}" - example: "minimalist cat"\n  Position 6: "{subject} tattoo" or "{subject} planner"'
+      : '  Position 5: "{vibe} {subject}" - example: "quirky cat" or "cottagecore cat"\n  Position 6: "{subject} bundle" or "{subject} {use-case}" - example: "cat scrapbook"',
 
-    'TIER 3 (positions 7-9): CROSS-NICHE STYLE BROWSERS',
+    'TIER 3 (positions 7-9): STYLE BROWSERS + SEASONAL',
     isLineArt
-      ? '  Position 7: "line art clipart" - this is ALWAYS a tag (top search for this product)\n  Position 8: "minimalist clipart" or "{vibe} clipart" - example: "boho line clipart"\n  Position 9: "ink illustration" - this is ALWAYS a tag (top buyer search in line art)'
-      : '  Position 7: "fantasy clipart" - this is ALWAYS a tag (mass-appeal cross-niche)\n  Position 8: "{vibe} clipart" - example: "whimsical clipart" or "boho clipart" or "cottagecore clipart"\n  Position 9: "watercolor clipart" - this is ALWAYS a tag (top buyer search in this category)',
+      ? '  Position 7: "line art clipart" - ALWAYS a tag\n  Position 8: "{vibe} clipart" - example: "minimalist clipart"\n  Position 9: "ink illustration" - ALWAYS a tag'
+      : '  Position 7: "{vibe} clipart" - example: "quirky clipart", "cottagecore clipart", "retro clipart". MUST match the vibe you chose in the title.\n  Position 8: "watercolor clipart" - ALWAYS a tag (top buyer search in this category)\n  Position 9: SEASONAL OR CROSS-NICHE. If the set is holiday themed use "{holiday} clipart" or "{holiday} png" (e.g. "christmas png", "halloween clipart"). If NOT seasonal, use a genuine cross-niche style tag that fits ("fantasy clipart", "boho clipart", "farmhouse decor" etc). Do NOT force a style tag that does not match the designs.',
 
-    'TIER 4 (positions 10-13): INTENT/USE-CASE',
+    'TIER 4 (positions 10-13): INTENT / USE-CASE / AUDIENCE',
     isLineArt
-      ? '  Position 10: "junk journal" - high-volume buyer use-case\n  Position 11: "tattoo design" OR "fineline tattoo" - tattoo artist targeted\n  Position 12: "planner stickers" OR "sticker sheet" - planner addict targeted\n  Position 13: UNIQUE long-tail - example: "card making" or "hand drawn art"'
-      : '  Position 10: "junk journal" - high-volume buyer use-case\n  Position 11: "sublimation design" OR "scrapbook supplies" - POD/crafter targeted\n  Position 12: "{subject} lover gift" OR "nursery decor" - audience-targeted\n  Position 13: UNIQUE long-tail not covered elsewhere - example: "kids room art" or "card making"',
+      ? '  Position 10: "junk journal"\n  Position 11: "tattoo design" OR "fineline tattoo"\n  Position 12: "planner stickers" OR "sticker sheet"\n  Position 13: UNIQUE long-tail - example: "card making" or "hand drawn art"'
+      : '  Position 10: "junk journal" - high-volume buyer use-case\n  Position 11: ' + (pngBoost ? '"sublimation design" or "transparent png" - POD seller targeted' : '"scrapbook supplies" or "printable art" - crafter targeted') + '\n  Position 12: AUDIENCE tag - "{subject} lover gift", "cat mom gift", "nursery decor", "kitchen decor" - pick what genuinely fits\n  Position 13: UNIQUE long-tail not covered elsewhere - example: "card making", "sticker sheet", "tumbler wrap", "kids room art"',
 
-    'ABSOLUTE RULES:',
-    '- "clipart" appears in 4-5 tags (don\'t over-repeat)',
-    '- "clip art" (with space) in EXACTLY 1 tag (secret weapon, dont stuff)',
+    'ABSOLUTE TAG RULES:',
+    '- "clipart" appears in 4-5 tags (do not over-repeat)',
+    '- "clip art" (with space) in EXACTLY 1 tag',
     isLineArt
       ? '- "line art" in 3-4 tags\n- "line art clipart" is ALWAYS a tag\n- "ink illustration" is ALWAYS a tag\n- "tattoo" or "fineline tattoo" in 1-2 tags\n- NEVER use "watercolor" in any tag (this is line art)'
-      : '- "watercolor" in 2 tags\n- "fantasy clipart" is ALWAYS tag 7 (or position 6-8 if needed)',
-    '- For PNG listings, "png" in 1-2 tags MAX (eg "cat png" + "transparent png")',
-    '- For JPG listings, ZERO format tags - replace with "printable" or "digital download"',
+      : '- "watercolor" in 2-3 tags\n- "watercolor clipart" is ALWAYS a tag\n- The vibe word you chose for the title MUST appear in 2 tags',
+    pngBoost
+      ? '- "png" in 2-3 tags (e.g. "cat png", "transparent png", "christmas png") - format search is high volume, use it'
+      : '- ZERO format tags - replace with "printable", "digital download", "printable art"',
+    '- If the set is SEASONAL, at least 2 tags must carry the holiday word - seasonal search spikes hard and early',
     '- NEVER duplicate keywords across tags',
     '- NO tag exactly matches a phrase in the title',
+    '- Every tag must be something a real buyer would type into Etsy search. If you would not type it, do not use it.',
 
     '=== DESCRIPTION FORMULA (powerful SEO copy) ===',
 
@@ -226,15 +256,15 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
 
     'DESCRIPTION SEO RULES:',
     isLineArt
-      ? '- Use "line art" 3-4 times naturally throughout\n- Use the vibe word (whimsical/minimalist/sketchy/etc) 3-4 times\n- Use "ink illustration" or "hand drawn" 2-3 times\n- NEVER use "watercolor" (wrong product)'
-      : '- Use "clipart" 3-4 times naturally throughout\n- Use the vibe word (whimsical/boho/cute/etc) 3-4 times - DEFAULT is whimsical\n- Use "watercolor" 2-3 times',
+      ? '- Use "line art" 3-4 times naturally throughout\n- Use the vibe word (minimalist/sketchy/fine line/etc) 3-4 times\n- Use "ink illustration" or "hand drawn" 2-3 times\n- NEVER use "watercolor" (wrong product)'
+      : '- Use "clipart" 3-4 times naturally throughout\n- Use the vibe word you chose 3-4 times (whatever it is - quirky, cottagecore, boho, etc)\n- Use "watercolor" 2-3 times',
     '- ' + formatRule,
     '- NEVER use "jpg" as a search keyword in description (only mention in WHAT YOU GET section as file format)',
 
     '=== OTHER FIELDS ===',
     isLineArt
-      ? 'altBase: 6-10 word SEO phrase. Include subject + "line art" + "clipart" + vibe. Example: "whimsical cat line art clipart ink illustration"'
-      : 'altBase: 6-10 word SEO phrase. Include subject + "clipart" + colors + vibe. Example: "cute watercolor cat clipart whimsical pastel fantasy"',
+      ? 'altBase: 6-10 word SEO phrase. Include subject + "line art" + "clipart" + vibe. Example: "quirky cat line art clipart ink illustration"'
+      : 'altBase: 6-10 word SEO phrase. Include subject + "clipart" + colors + vibe. Example: "quirky watercolor cat clipart pastel cottagecore"',
     'primaryColor: dominant color, EXACTLY ONE from: ' + colorList + '.',
     isLineArt
       ? 'For line art on white background, primaryColor is almost always "Black", secondaryColor "White".'
@@ -253,27 +283,32 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     'The designs feature: ' + input.imageDescriptions.join(' | '),
     '',
     'YOUR TASK:',
-    '1. Identify the MAIN SUBJECT (one word: cat, flower, girl, dragon, etc.)',
+    '1. Identify the MAIN SUBJECT (one word: cat, flower, girl, dragon, mushroom, cow, etc.)',
     isLineArt
-      ? '2. Identify the VIBE/STYLE (one word: whimsical, minimalist, sketchy, fine line, boho, mystical, cute, delicate)'
-      : '2. Identify the VIBE/STYLE based on the actual designs you see. Choose ONE that best matches: whimsical (default for cute illustrations), cute, boho (for earthy/floral), cottagecore (for vintage rural), magical (for fairy/sparkle), dreamy (for pastel/soft), wildflower (for floral-heavy), kawaii (for ultra-cute Japanese style), vintage (for antique/retro), fantasy (for mystical/dragon), quirky (ONLY if designs are genuinely odd/unusual)',
-    '3. Hit ALL 4 buyer personas with different keyword angles',
-    '4. Follow ALL the tag and description rules with ZERO compromise',
-    '5. Make this listing UNSTOPPABLE - bestseller-tier SEO',
+      ? '2. Identify the VIBE/STYLE (one word: minimalist, sketchy, fine line, bold line, boho, mystical, delicate, whimsical, gothic, folk)'
+      : '2. Choose the VIBE using the VIBE SELECTION decision guide. Do NOT default to whimsical. Look at what the designs actually show and pick the word a buyer would type. Anthropomorphic animals in clothing or doing human activities = QUIRKY.',
+    '3. Check if this is SEASONAL (christmas, halloween, easter, valentine, thanksgiving, birthday, wedding). If yes, the theme word goes in Slot 1 of the title and into 2 tags.',
+    '4. Hit ALL 4 buyer personas with different keyword angles',
+    '5. Follow ALL the title and tag rules with ZERO compromise',
+    '6. Make this listing UNSTOPPABLE - bestseller-tier SEO',
     '',
     'CRITICAL REMINDERS:',
-    '- TITLE: MAX 13 WORDS. Count words carefully. 14+ words = REJECTED. Aim for 10-12 words.',
+    '- TITLE SLOT 1 = "{number} {Subject} Clipart ' + formatToken + '" - clean and direct, NO vibe word, NO "Watercolor"',
+    isLineArt
+      ? '- TITLE SLOT 2 = style words, "Line Art" or "Ink" MUST be here'
+      : '- TITLE SLOT 2 = "Watercolor" + vibe word live HERE, not in Slot 1',
+    '- TITLE: MAX 13 WORDS. Count words carefully. 14+ words = REJECTED. Aim for 11-12 words.',
     '- TITLE: MUST start with a NUMBER (item count)',
-    '- TITLE: "Clipart" + "Watercolor" + Vibe word MUST appear',
-    isLineArt ? '- TITLE: "Line Art" or "Ink" MUST appear' : '',
-    '- BIRTHDAY designs: Title MUST contain "Happy Birthday Clipart" exact phrase + "Watercolor"',
-    '- CHRISTMAS/HALLOWEEN/EASTER/WEDDING/VALENTINE: Include "{Holiday} Clipart" + "Watercolor"',
+    '- SEASONAL: holiday word goes into Slot 1 right before the subject',
+    '- BIRTHDAY designs: Slot 1 MUST contain "Happy Birthday Clipart" exact phrase',
+    isLineArt ? '' : '- VIBE: whimsical is NOT the default. Quirky, cottagecore, boho, retro, vintage, folk art, fantasy, cute are all equally valid. Pick what genuinely matches.',
     '- NO "jpg" anywhere in tags (buyers dont search this way)',
     '- "clip art" (with space) in exactly 1 tag (secret weapon)',
+    pngBoost && !isLineArt ? '- "{subject} png" MUST be a tag - format search is one of the highest volume patterns' : '',
     isLineArt
       ? '- "line art clipart" MUST be a tag\n- NEVER use "watercolor" anywhere'
-      : '- "fantasy clipart" MUST be a tag',
-    '- VIBE WORD selection is CRITICAL: actually LOOK at what the designs show. "Whimsical" is the DEFAULT for cute/cartoon/illustrated. "Quirky" ONLY for genuinely odd/strange designs. "Boho" for floral/earthy. "Cottagecore" for rural/vintage. Use the vibe word everywhere (title, tags, description)',
+      : '- "watercolor clipart" MUST be a tag',
+    '- Every tag must be a phrase a real buyer would type. No filler.',
     '- End description after CTA - do NOT add AI disclosure (system adds it)',
     '',
     'Return JSON now.',
@@ -360,9 +395,10 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
     cleanTags.push(tag);
   }
 
+  // Zorunlu taglar - "fantasy clipart" artik zorunlu degil (tema uymayabilir)
   const requiredTags = isLineArt
     ? ['line art clipart', 'ink illustration']
-    : ['fantasy clipart', 'watercolor clipart'];
+    : ['watercolor clipart'];
   for (const required of requiredTags) {
     if (cleanTags.indexOf(required) === -1 && cleanTags.length < 13) {
       cleanTags.push(required);
@@ -372,8 +408,8 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   const fillers = isLineArt
     ? ['line art', 'minimalist clipart', 'hand drawn art', 'tattoo design', 'junk journal', 'fineline tattoo', 'sticker sheet', 'card making']
     : pngBoost
-    ? ['clipart', 'whimsical clipart', 'png clipart', 'digital download', 'junk journal', 'sublimation png', 'scrapbook supplies', 'craft supply']
-    : ['clipart', 'whimsical clipart', 'printable art', 'digital download', 'junk journal', 'scrapbook supplies', 'card making', 'craft supply'];
+    ? ['clipart', 'transparent png', 'junk journal', 'sublimation design', 'digital download', 'scrapbook supplies', 'craft supply', 'card making']
+    : ['clipart', 'printable art', 'junk journal', 'digital download', 'scrapbook supplies', 'card making', 'craft supply', 'sticker sheet'];
 
   let fi = 0;
   while (cleanTags.length < 13 && fi < fillers.length) {
@@ -396,7 +432,7 @@ export async function generateEtsySeo(input: SeoInput): Promise<SeoOutput> {
   }
 
   if (typeof parsed.altBase !== 'string' || parsed.altBase.length === 0) {
-    parsed.altBase = isLineArt ? 'whimsical line art clipart ink illustration' : 'watercolor clipart design';
+    parsed.altBase = isLineArt ? 'line art clipart ink illustration' : 'watercolor clipart design';
   }
   if (typeof parsed.primaryColor !== 'string') parsed.primaryColor = '';
   if (typeof parsed.secondaryColor !== 'string') parsed.secondaryColor = '';
