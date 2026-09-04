@@ -2,39 +2,65 @@ import { supabaseAdmin } from './supabase';
 
 /**
  * shopKey: 'shop1' (SuzyFlowArt, default) veya 'shop2' (SuzyCardPrints)
- * Aynı API key/secret kullaniliyor cunku tek app, ama refresh token farkli.
+ * forceRefresh: true ise DB'deki expires_at'e bakmadan yeniler.
  */
-export async function getValidEtsyToken(shopKey: string = 'shop1'): Promise<string> {
+export async function getValidEtsyToken(
+  shopKey: string = 'shop1',
+  forceRefresh: boolean = false
+): Promise<string> {
   const rowId = shopKey === 'shop2' ? 2 : 1;
   const db = supabaseAdmin();
   const { data: row } = await db.from('etsy_oauth').select('*').eq('id', rowId).single();
+
   if (!row || !row.access_token) {
-    throw new Error('Etsy ' + shopKey + ' not connected. Run /api/etsy/authorize?shop=' + (rowId === 2 ? '2' : '1') + ' first.');
+    throw new Error(
+      'Etsy ' + shopKey + ' not connected. Run /api/etsy/authorize?shop=' +
+      (rowId === 2 ? '2' : '1') + ' first.'
+    );
   }
+
   const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : 0;
   const now = Date.now();
-  const bufferMs = 5 * 60 * 1000;
-  if (expiresAt - now > bufferMs) {
+  const bufferMs = 10 * 60 * 1000;
+
+  if (!forceRefresh && expiresAt - now > bufferMs) {
     return row.access_token;
   }
+
   if (!row.refresh_token) {
     throw new Error('Token expired and no refresh token for ' + shopKey + '. Re-authorize.');
   }
+
   const apiKey = process.env.ETSY_API_KEY || '';
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
     client_id: apiKey,
     refresh_token: row.refresh_token,
   });
+
   const res = await fetch('https://api.etsy.com/v3/public/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   });
+
   const tokenData = await res.json();
+
   if (!res.ok || !tokenData.access_token) {
-    throw new Error('Token refresh failed for ' + shopKey + ': ' + JSON.stringify(tokenData));
+    // Yenileme basarisiz: baska bir islem az once yenilemis olabilir.
+    // DB'yi tekrar oku - orada taze token varsa onu kullan.
+    const { data: fresh } = await db.from('etsy_oauth').select('*').eq('id', rowId).single();
+    const freshExpires = fresh?.expires_at ? new Date(fresh.expires_at).getTime() : 0;
+    if (fresh?.access_token && fresh.access_token !== row.access_token && freshExpires > Date.now()) {
+      console.log('[etsy-auth] paralel yenileme tespit edildi, taze token kullaniliyor: ' + shopKey);
+      return fresh.access_token;
+    }
+    throw new Error(
+      'Token refresh failed for ' + shopKey + ': ' + JSON.stringify(tokenData).slice(0, 200) +
+      ' | /api/etsy/authorize?shop=' + (rowId === 2 ? '2' : '1') + '&key=CRON_SECRET ile yeniden yetkilendir.'
+    );
   }
+
   const newExpiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
   await db.from('etsy_oauth').update({
     access_token: tokenData.access_token,
@@ -42,7 +68,34 @@ export async function getValidEtsyToken(shopKey: string = 'shop1'): Promise<stri
     expires_at: newExpiresAt,
     updated_at: new Date().toISOString(),
   }).eq('id', rowId);
+
   return tokenData.access_token;
+}
+
+/**
+ * Etsy 401/invalid_token dondurdugunde tek seferlik zorla yenileyip tekrar dener.
+ * Paralel islem token'i degistirdiginde olusan hatayi otomatik kurtarir.
+ */
+export async function withEtsyTokenRetry<T>(
+  shopKey: string,
+  fn: (token: string) => Promise<T>
+): Promise<T> {
+  const token = await getValidEtsyToken(shopKey);
+  try {
+    return await fn(token);
+  } catch (e: any) {
+    const msg = String(e && e.message ? e.message : e);
+    const isTokenError =
+      msg.indexOf('invalid_token') !== -1 ||
+      msg.indexOf('token is expired') !== -1 ||
+      msg.indexOf('access token is expired') !== -1 ||
+      msg.indexOf('401') !== -1;
+    if (!isTokenError) throw e;
+
+    console.log('[etsy-auth] token hatasi yakalandi, zorla yenileniyor: ' + shopKey);
+    const fresh = await getValidEtsyToken(shopKey, true);
+    return await fn(fresh);
+  }
 }
 
 export function getEtsyApiKeyHeader(): string {
