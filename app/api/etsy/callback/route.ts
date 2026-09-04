@@ -14,55 +14,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Missing code or state' }, { status: 400 });
   }
 
-  // State'ten shop bilgisini cikar: "shop1_xxxxx" veya "shop2_xxxxx"
-  let rowId = 1;
-  let shopName = 'SuzyFlowArt';
-  if (state.startsWith('shop2_')) {
-    rowId = 2;
-    shopName = 'SuzyCardPrints';
-  } else if (state.startsWith('shop1_')) {
-    rowId = 1;
-    shopName = 'SuzyFlowArt';
-  }
-
   const db = supabaseAdmin();
-  const { data: row } = await db.from('etsy_oauth').select('*').eq('id', rowId).single();
 
-  if (!row) {
-    return NextResponse.json({ error: 'OAuth row not found for shop ' + rowId }, { status: 400 });
-  }
+  // Bu state'e ait bekleyen kaydi bul - her deneme kendi satirinda
+  const { data: pending } = await db
+    .from('etsy_oauth_pending')
+    .select('*')
+    .eq('state', state)
+    .maybeSingle();
 
-  if (!row.code_verifier) {
-    // Callback iki kez tetiklenmis olabilir (tarayici prefetch / cift istek).
-    // Ilk istek basarili olduysa token az once yenilenmistir - hata degil, basari goster.
-    const updatedAge = row.updated_at
-      ? Date.now() - new Date(row.updated_at).getTime()
-      : Number.MAX_SAFE_INTEGER;
-    const expiresAtMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
-
-    if (row.access_token && updatedAge < 3 * 60 * 1000 && expiresAtMs > Date.now()) {
-      return new NextResponse(
-        '<html><body style="font-family:sans-serif;text-align:center;padding:60px">' +
-        '<h1>' + shopName + ' zaten baglandi!</h1>' +
-        '<p>Yetkilendirme basarili. Bu sekmeyi kapatabilirsin.</p>' +
-        '</body></html>',
-        { headers: { 'Content-Type': 'text/html' } }
-      );
-    }
-
+  if (!pending) {
     return NextResponse.json(
-      { error: 'No pending authorization - run /api/etsy/authorize again' },
+      { error: 'Bu state icin bekleyen yetkilendirme yok - authorize linkini tekrar ac' },
       { status: 400 }
     );
   }
 
-  // State prefix kontrolu yeterli: dogru shop'a dondugunu dogrular.
-  // Tam esitlik araniyordu ama authorize iki kez tetiklenirse DB'deki state
-  // eziliyor ve gecerli bir donusu bile reddediyordu.
-  // Asil guvenlik PKCE code_verifier tarafinda.
-  if (!state.startsWith('shop' + rowId + '_')) {
-    return NextResponse.json({ error: 'State shop mismatch' }, { status: 400 });
-  }
+  const rowId = pending.row_id === 2 ? 2 : 1;
+  const shopName = rowId === 2 ? 'SuzyCardPrints' : 'SuzyFlowArt';
 
   const redirectUri = SITE_URL + '/api/etsy/callback';
   const apiKey = process.env.ETSY_API_KEY || '';
@@ -72,7 +41,7 @@ export async function GET(req: Request) {
     client_id: apiKey,
     redirect_uri: redirectUri,
     code: code,
-    code_verifier: row.code_verifier || '',
+    code_verifier: pending.code_verifier,
   });
 
   const res = await fetch('https://api.etsy.com/v3/public/oauth/token', {
@@ -99,6 +68,9 @@ export async function GET(req: Request) {
     oauth_state: null,
     updated_at: new Date().toISOString(),
   }).eq('id', rowId);
+
+  // Kullanilan kaydi sil
+  await db.from('etsy_oauth_pending').delete().eq('state', state);
 
   return new NextResponse(
     '<html><body style="font-family:sans-serif;text-align:center;padding:60px">' +
