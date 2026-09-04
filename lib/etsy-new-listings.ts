@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { getEtsyApiKeyHeader, getEtsyShopId, withEtsyTokenRetry } from './etsy-auth';
+import { getEtsyApiKeyHeader, getEtsyShopId } from './etsy-auth';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -16,6 +16,12 @@ export type CachedListing = {
   created_at_etsy: string | null;
 };
 
+// Aktif listing okuma PUBLIC bir islem - sadece x-api-key yeterli.
+// Bozuk/eski bir Bearer token eklemek istegi 401'e dusuruyordu.
+function publicHeaders() {
+  return { 'x-api-key': getEtsyApiKeyHeader() };
+}
+
 function pickImageUrl(images: any[]): string {
   if (!Array.isArray(images) || images.length === 0) return '';
   const first = images[0] || {};
@@ -28,7 +34,6 @@ export async function fetchSectionListingsFromEtsy(
   const shopId = getEtsyShopId('shop1');
   const notes: string[] = [];
 
-  // Tek istekte listing + resimler (includes=Images)
   const listUrl =
     ETSY_API + '/shops/' + shopId + '/listings/active' +
     '?shop_section_ids=' + SECTION_ID +
@@ -36,29 +41,20 @@ export async function fetchSectionListingsFromEtsy(
     '&sort_on=created&sort_order=desc' +
     '&includes=Images';
 
-  const results: any[] = await withEtsyTokenRetry('shop1', async (token) => {
-    const res = await fetch(listUrl, {
-      headers: {
-        'x-api-key': getEtsyApiKeyHeader(),
-        Authorization: 'Bearer ' + token,
-      },
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      throw new Error('Etsy listings API ' + res.status + ': ' + text.slice(0, 300));
-    }
-    const data = JSON.parse(text);
-    return data.results || [];
-  });
+  const listRes = await fetch(listUrl, { headers: publicHeaders(), cache: 'no-store' });
+  const listText = await listRes.text();
+  if (!listRes.ok) {
+    throw new Error('Etsy listings API ' + listRes.status + ': ' + listText.slice(0, 300));
+  }
 
+  const listData = JSON.parse(listText);
+  const results: any[] = listData.results || [];
   notes.push(results.length + ' listing cekildi (section ' + SECTION_ID + ')');
 
   // includes=Images calismadiysa eksikler icin tek tek dene
   const missing: number[] = [];
   for (const item of results) {
-    if (!pickImageUrl(item.images || item.Images || [])) {
-      missing.push(item.listing_id);
-    }
+    if (!pickImageUrl(item.images || item.Images || [])) missing.push(item.listing_id);
   }
 
   const fallbackImages: Record<number, string> = {};
@@ -69,25 +65,25 @@ export async function fetchSectionListingsFromEtsy(
 
     for (const lid of missing) {
       try {
-        const url = await withEtsyTokenRetry('shop1', async (token) => {
-          const r = await fetch(ETSY_API + '/listings/' + lid + '/images', {
-            headers: {
-              'x-api-key': getEtsyApiKeyHeader(),
-              Authorization: 'Bearer ' + token,
-            },
-          });
-          const t = await r.text();
-          if (!r.ok) throw new Error(r.status + ': ' + t.slice(0, 150));
-          const d = JSON.parse(t);
-          return pickImageUrl(d.results || []);
+        const r = await fetch(ETSY_API + '/listings/' + lid + '/images', {
+          headers: publicHeaders(),
+          cache: 'no-store',
         });
-        if (url) fallbackImages[lid] = url;
-        else failed++;
+        const t = await r.text();
+        if (!r.ok) {
+          failed++;
+          lastError = r.status + ': ' + t.slice(0, 120);
+        } else {
+          const d = JSON.parse(t);
+          const u = pickImageUrl(d.results || []);
+          if (u) fallbackImages[lid] = u;
+          else failed++;
+        }
       } catch (e: any) {
         failed++;
-        lastError = (e.message || 'bilinmeyen').slice(0, 200);
+        lastError = (e.message || 'bilinmeyen').slice(0, 120);
       }
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 120));
     }
 
     if (failed > 0) {
@@ -103,9 +99,7 @@ export async function fetchSectionListingsFromEtsy(
         : null;
 
     const imageUrl =
-      pickImageUrl(item.images || item.Images || []) ||
-      fallbackImages[item.listing_id] ||
-      '';
+      pickImageUrl(item.images || item.Images || []) || fallbackImages[item.listing_id] || '';
 
     return {
       listing_id: item.listing_id,
@@ -139,13 +133,13 @@ export async function refreshNewListingsCache(): Promise<{
     return { inserted: 0, total: 0, withImages: 0, notes: [...notes, 'Listing bulunamadi'] };
   }
 
-  // Hicbir resim yoksa eski cache'i SILME - bos veriyle degistirmek daha kotu
+  // Hicbir resim yoksa eski cache'i SILME
   if (withImages === 0) {
     return {
       inserted: 0,
       total: listings.length,
       withImages: 0,
-      notes: [...notes, 'HIC RESIM ALINAMADI - cache korundu, yazma yapilmadi'],
+      notes: [...notes, 'HIC RESIM ALINAMADI - cache korundu'],
     };
   }
 
@@ -180,6 +174,5 @@ export async function getCachedNewListings(limit: number = 12): Promise<CachedLi
     console.error('getCachedNewListings error:', error);
     return [];
   }
-
   return data || [];
 }
