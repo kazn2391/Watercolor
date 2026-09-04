@@ -33,6 +33,23 @@ export async function GET(req: Request) {
   }
 
   if (!row.code_verifier) {
+    // Callback iki kez tetiklenmis olabilir (tarayici prefetch / cift istek).
+    // Ilk istek basarili olduysa token az once yenilenmistir - hata degil, basari goster.
+    const updatedAge = row.updated_at
+      ? Date.now() - new Date(row.updated_at).getTime()
+      : Number.MAX_SAFE_INTEGER;
+    const expiresAtMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
+
+    if (row.access_token && updatedAge < 3 * 60 * 1000 && expiresAtMs > Date.now()) {
+      return new NextResponse(
+        '<html><body style="font-family:sans-serif;text-align:center;padding:60px">' +
+        '<h1>' + shopName + ' zaten baglandi!</h1>' +
+        '<p>Yetkilendirme basarili. Bu sekmeyi kapatabilirsin.</p>' +
+        '</body></html>',
+        { headers: { 'Content-Type': 'text/html' } }
+      );
+    }
+
     return NextResponse.json(
       { error: 'No pending authorization - run /api/etsy/authorize again' },
       { status: 400 }
@@ -40,8 +57,8 @@ export async function GET(req: Request) {
   }
 
   // State prefix kontrolu yeterli: dogru shop'a dondugunu dogrular.
-  // Tam esitlik araniyordu ama authorize iki kez tetiklenirse (tarayici prefetch,
-  // cift tiklama vs) DB'deki state eziliyor ve gecerli bir donusu bile reddediyordu.
+  // Tam esitlik araniyordu ama authorize iki kez tetiklenirse DB'deki state
+  // eziliyor ve gecerli bir donusu bile reddediyordu.
   // Asil guvenlik PKCE code_verifier tarafinda.
   if (!state.startsWith('shop' + rowId + '_')) {
     return NextResponse.json({ error: 'State shop mismatch' }, { status: 400 });
