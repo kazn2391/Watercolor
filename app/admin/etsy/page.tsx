@@ -8,6 +8,7 @@ export default function EtsyAdminPanel() {
   const [driveUrl, setDriveUrl] = useState('');
   const [shopKey, setShopKey] = useState('shop1');
   const [productType, setProductType] = useState('auto');
+  const [categoryMode, setCategoryMode] = useState('clipart');
   const [generatePng, setGeneratePng] = useState(false);
   const [upscaleImages, setUpscaleImages] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,10 +58,7 @@ export default function EtsyAdminPanel() {
         if (!res.ok) return;
         const data = await res.json();
 
-        if (data.status === 'not_found') {
-          // is henuz kayit yazmamis olabilir - beklemeye devam
-          return;
-        }
+        if (data.status === 'not_found') return;
 
         if (Array.isArray(data.steps) && data.steps.length > 0) {
           setResult((prev: any) => ({ ...(prev || {}), steps: data.steps }));
@@ -87,7 +85,6 @@ export default function EtsyAdminPanel() {
           return;
         }
 
-        // running - sunucu limitine takilip sessizce olduyse yakala
         if (data.updatedAt) {
           const age = Date.now() - new Date(data.updatedAt).getTime();
           if (age > 8 * 60 * 1000) {
@@ -97,9 +94,7 @@ export default function EtsyAdminPanel() {
             return;
           }
         }
-      } catch (e) {
-        // ag hatasi - sonraki tikta tekrar dener
-      }
+      } catch (e) {}
     };
 
     tick();
@@ -124,7 +119,9 @@ export default function EtsyAdminPanel() {
       const res = await fetch('/api/etsy/create-draft?key=' + encodeURIComponent(password), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driveUrl, generatePng, upscaleImages, shopKey, productType, jobId }),
+        body: JSON.stringify({
+          driveUrl, generatePng, upscaleImages, shopKey, productType, categoryMode, jobId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -137,9 +134,7 @@ export default function EtsyAdminPanel() {
         finishJob();
       }
     } catch (e: any) {
-      // Baglanti koptu (telefon kilitlendi vs) - is sunucuda devam ediyor
       setInfo('Baglanti koptu ama islem sunucuda devam ediyor. Bu sayfayi kapatabilirsin - tekrar acinca durum otomatik gelir.');
-      // loading acik kalir, polling devam eder
     }
   }
 
@@ -186,6 +181,21 @@ export default function EtsyAdminPanel() {
       >
         <option value="auto">Otomatik (Watercolor / Sublimation)</option>
         <option value="line_art">Line Art Clipart (Tattoo / Junk Journal)</option>
+      </select>
+
+      <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: '#666' }}>
+        Etsy Kategorisi
+      </label>
+      <select
+        value={categoryMode}
+        onChange={(e) => setCategoryMode(e.target.value)}
+        style={{
+          width: '100%', padding: 10, marginBottom: 16, border: '1px solid #ddd',
+          borderRadius: 8, fontSize: 14, background: 'white', cursor: 'pointer',
+        }}
+      >
+        <option value="clipart">Clip Art &amp; Image Files (varsayilan)</option>
+        <option value="digital_prints">Digital Prints (Art &amp; Collectibles)</option>
       </select>
 
       <label style={{ display: 'block', fontSize: 13, marginBottom: 6, color: '#666' }}>
@@ -271,7 +281,9 @@ export default function EtsyAdminPanel() {
 
       {result && result.success && (
         <div style={{ marginTop: 20, padding: 16, background: '#efe', borderRadius: 8 }}>
-          <p style={{ fontWeight: 'bold', color: '#080' }}>Draft hazir! ({result.shop})</p>
+          <p style={{ fontWeight: 'bold', color: '#080' }}>
+            Draft hazir! ({result.shop}{result.category ? ' · ' + result.category : ''})
+          </p>
           <p style={{ fontSize: 14, margin: '8px 0' }}><strong>Title:</strong> {result.seo && result.seo.title}</p>
           <p style={{ fontSize: 13, margin: '8px 0' }}><strong>Tags:</strong> {result.seo && result.seo.tags.join(', ')}</p>
           <a href={result.etsyEditUrl} target="_blank" rel="noopener"
