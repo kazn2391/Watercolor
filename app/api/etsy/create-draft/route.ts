@@ -21,7 +21,7 @@ import {
   uploadListingImage,
   uploadListingFile,
   uploadListingVideo,
-  findClipArtTaxonomyId,
+  findTaxonomyIdForMode,
   updateListingProperty,
 } from '@/lib/etsy-listing';
 
@@ -204,6 +204,7 @@ export async function POST(req: Request) {
   let upscaleImages = false;
   let shopKey: string = 'shop1';
   let productType: 'auto' | 'line_art' = 'auto';
+  let categoryMode: 'clipart' | 'digital_prints' = 'clipart';
   let jobId = '';
   try {
     const bodyJson = await req.json();
@@ -212,6 +213,7 @@ export async function POST(req: Request) {
     upscaleImages = bodyJson.upscaleImages === true;
     shopKey = bodyJson.shopKey === 'shop2' ? 'shop2' : 'shop1';
     productType = bodyJson.productType === 'line_art' ? 'line_art' : 'auto';
+    categoryMode = bodyJson.categoryMode === 'digital_prints' ? 'digital_prints' : 'clipart';
     jobId = typeof bodyJson.jobId === 'string' ? bodyJson.jobId.slice(0, 60) : '';
   } catch (e) {
     return NextResponse.json({ error: 'driveUrl gerekli' }, { status: 400 });
@@ -226,7 +228,8 @@ export async function POST(req: Request) {
   const elapsed = () => Math.round((Date.now() - t0) / 1000) + 's';
 
   let lastFlush = 0;
-  async function writeJob(patch: Record<string, any>, force: boolean = false) {
+  let flushEnabled = true;
+  async function writeJob(patch: Record<string, any>) {
     if (!jobId) return;
     try {
       await db.from('etsy_jobs').upsert({
@@ -235,12 +238,11 @@ export async function POST(req: Request) {
         updated_at: new Date().toISOString(),
         ...patch,
       });
-    } catch (e) {
-      // job yazimi asla ana isi durdurmasin
-    }
+    } catch (e) {}
   }
   function log(msg: string) {
     steps.push(msg);
+    if (!flushEnabled) return;
     const now = Date.now();
     if (jobId && now - lastFlush > 1500) {
       lastFlush = now;
@@ -248,10 +250,13 @@ export async function POST(req: Request) {
     }
   }
 
-  // Job kaydini baslat
-  await writeJob({ status: 'running', result: null, error: null }, true);
+  await writeJob({ status: 'running', result: null, error: null });
 
-  // ===== ERKEN BASLATILAN PARALEL ISLER (hic bir seye bagimli degil) =====
+  const heartbeat = setInterval(() => {
+    if (flushEnabled) void writeJob({ status: 'running' });
+  }, 20000);
+
+  // Erken paralel isler
   const videoPromise = fetchBufferFromUrl(VIDEO_URL)
     .then((buf) => ({ ok: true as const, buf }))
     .catch((e: any) => ({ ok: false as const, err: (e.message || '').slice(0, 150) }));
@@ -260,15 +265,11 @@ export async function POST(req: Request) {
     .then((buf) => ({ ok: true as const, buf }))
     .catch((e: any) => ({ ok: false as const, err: (e.message || '').slice(0, 150) }));
 
-  const taxonomyPromise = findClipArtTaxonomyId().catch(() => null);
+  const taxonomyPromise = findTaxonomyIdForMode(categoryMode).catch(() => null);
 
   const pdfTemplatePromise = (async () => {
     try {
-      const r = await db
-        .from('etsy_settings')
-        .select('pdf_template_b64')
-        .eq('id', 1)
-        .single();
+      const r = await db.from('etsy_settings').select('pdf_template_b64').eq('id', 1).single();
       return r.data;
     } catch (e) {
       return null;
@@ -278,12 +279,15 @@ export async function POST(req: Request) {
   try {
     const shopLabel = shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt';
     const productLabel = productType === 'line_art' ? 'Line Art' : 'Auto';
-    log('[' + elapsed() + '] Shop: ' + shopLabel + ' | Tip: ' + productLabel);
+    const catLabel = categoryMode === 'digital_prints' ? 'Digital Prints' : 'Clip Art';
+    log('[' + elapsed() + '] Shop: ' + shopLabel + ' | Tip: ' + productLabel + ' | Kategori: ' + catLabel);
 
     log('[' + elapsed() + '] Drive klasoru okunuyor');
     const folder = await readDriveFolder(driveUrl);
     if (folder.imageCount === 0) {
-      await writeJob({ status: 'error', error: 'Klasorde resim bulunamadi. Herkese acik mi?' }, true);
+      clearInterval(heartbeat);
+      flushEnabled = false;
+      await writeJob({ status: 'error', error: 'Klasorde resim bulunamadi. Herkese acik mi?' });
       return NextResponse.json(
         { error: 'Klasorde resim bulunamadi. Herkese acik mi?', steps },
         { status: 400 }
@@ -309,7 +313,9 @@ export async function POST(req: Request) {
     const descs: string[] = descBatch.results.filter((d): d is string => d !== null && d.length > 3);
 
     if (descs.length === 0) {
-      await writeJob({ status: 'error', error: 'Resimler analiz edilemedi.' }, true);
+      clearInterval(heartbeat);
+      flushEnabled = false;
+      await writeJob({ status: 'error', error: 'Resimler analiz edilemedi.' });
       return NextResponse.json(
         { error: 'Resimler analiz edilemedi.', steps },
         { status: 400 }
@@ -365,8 +371,7 @@ export async function POST(req: Request) {
     const downloadedCount = allImageBuffers.filter((b) => b !== null).length;
     log('[' + elapsed() + '] Toplam ' + downloadedCount + ' resim hazir');
 
-    // ===== SEO + PNG PARALEL (birbirine bagimli degiller) =====
-    // SEO icin PNG durumunu iyimser varsayiyoruz: kullanici PNG istediyse uretilecek
+    // ===== SEO + PNG PARALEL =====
     const optimisticPngSubfolder = folder.hasPngSubfolder || generatePng;
 
     const seoPromise = generateEtsySeo({
@@ -498,9 +503,9 @@ export async function POST(req: Request) {
 
     const taxonomyId = await taxonomyPromise;
     if (!taxonomyId) {
-      throw new Error('Taxonomy alinamadi');
+      throw new Error('Taxonomy alinamadi (' + catLabel + ')');
     }
-    log('[' + elapsed() + '] Taxonomy: ' + taxonomyId);
+    log('[' + elapsed() + '] Kategori: ' + catLabel + ' (taxonomy ' + taxonomyId + ')');
 
     const isLineArt = productType === 'line_art';
     const listingId = await createDraftListing({
@@ -519,11 +524,14 @@ export async function POST(req: Request) {
 
     const propertyUpdates: Promise<void>[] = [];
 
-    propertyUpdates.push(
-      updateListingProperty(listingId, PROP_CRAFT, CRAFT_VALUES, CRAFT_NAMES, shopKey)
-        .then((ok) => { log('Craft type: ' + (ok ? 'OK' : 'atlandi')); })
-        .catch(() => { log('Craft type: hata'); })
-    );
+    // Craft type sadece Clip Art kategorisinde gecerli
+    if (categoryMode !== 'digital_prints') {
+      propertyUpdates.push(
+        updateListingProperty(listingId, PROP_CRAFT, CRAFT_VALUES, CRAFT_NAMES, shopKey)
+          .then((ok) => { log('Craft type: ' + (ok ? 'OK' : 'atlandi')); })
+          .catch(() => { log('Craft type: hata'); })
+      );
+    }
 
     const subj = SUBJECT_MAP[(seo.artSubject || '').toLowerCase().trim()];
     if (subj) {
@@ -555,17 +563,14 @@ export async function POST(req: Request) {
     await Promise.all(propertyUpdates);
     log('[' + elapsed() + '] Tum property update tamamlandi');
 
-        // ===== ETSY RESIM UPLOAD - SIRALI (Etsy listing'i kilitler, paralel kabul etmez) =====
+    // ===== ETSY RESIM UPLOAD - SIRALI =====
     log('[' + elapsed() + '] Etsy resim upload basliyor sirali (' + top10.length + ' resim)');
 
     let etsyImgSuccess = 0;
     let etsyImgFail = 0;
     const etsyErrors: string[] = [];
 
-    const uploadIndices: number[] = [];
-    for (let i = 0; i < top10.length; i++) uploadIndices.push(i);
-
-    await processBatch(uploadIndices, 1, async (i) => {
+    for (let i = 0; i < top10.length; i++) {
       let buf: Buffer | null = null;
 
       if (upscaleApplied && upscaledBuffers[i]) {
@@ -578,14 +583,14 @@ export async function POST(req: Request) {
         } catch (e: any) {
           etsyImgFail++;
           etsyErrors.push('Resim ' + (i + 1) + ' indirilemedi: ' + (e.message || '').slice(0, 80));
-          return false;
+          continue;
         }
       }
 
       if (!buf) {
         etsyImgFail++;
         etsyErrors.push('Resim ' + (i + 1) + ' buffer yok');
-        return false;
+        continue;
       }
 
       const alt = buildAltText(seo.altBase, i + 1, top10.length);
@@ -597,8 +602,7 @@ export async function POST(req: Request) {
         etsyImgFail++;
         etsyErrors.push('Resim ' + (i + 1) + ': ' + result.error.slice(0, 80));
       }
-      return result.success;
-    });
+    }
 
     log('[' + elapsed() + '] Etsy upload sonuc: ' + etsyImgSuccess + '/' + top10.length + ' basarili' + (upscaleApplied ? ' (4032x4032)' : ''));
     if (etsyImgFail > 0) {
@@ -610,7 +614,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // ===== 11. RESIM: BONUS PACK (erken indirilmisti) =====
+    // ===== 11. RESIM: BONUS PACK =====
     const bonusRes = await bonusPromise;
     if (bonusRes.ok) {
       const bonusAlt = '100 plus bonus pack included free gift watercolor clipart designs';
@@ -624,7 +628,7 @@ export async function POST(req: Request) {
       log('11. resim fetch HATASI: ' + bonusRes.err);
     }
 
-    // ===== VIDEO (erken indirilmisti) =====
+    // ===== VIDEO =====
     const videoRes = await videoPromise;
     if (videoRes.ok) {
       try {
@@ -638,7 +642,7 @@ export async function POST(req: Request) {
       log('Video fetch HATASI: ' + videoRes.err);
     }
 
-    // ===== PDF (sablon erken cekilmisti) =====
+    // ===== PDF =====
     const tplRow = await pdfTemplatePromise;
     if (tplRow && tplRow.pdf_template_b64) {
       try {
@@ -666,22 +670,28 @@ export async function POST(req: Request) {
       log('Drive rename HATASI: ' + renameErr.message);
     }
 
-    log('[' + elapsed() + '] TAMAMLANDI');
+    clearInterval(heartbeat);
+    flushEnabled = false;
+    steps.push('[' + elapsed() + '] TAMAMLANDI');
+    await new Promise((r) => setTimeout(r, 400));
 
     const shopUrlSlug = shopKey === 'shop2' ? 'SuzyCardPrints' : 'me';
     const payload = {
       success: true,
       listingId,
       shop: shopKey === 'shop2' ? 'SuzyCardPrints' : 'SuzyFlowArt',
+      category: catLabel,
       etsyEditUrl: 'https://www.etsy.com/your/shops/' + shopUrlSlug + '/listing-editor/edit/' + listingId,
       seo,
       steps,
     };
 
-    await writeJob({ status: 'done', result: payload }, true);
+    await writeJob({ status: 'done', result: payload });
     return NextResponse.json(payload);
   } catch (err: any) {
-    await writeJob({ status: 'error', error: err.message }, true);
+    clearInterval(heartbeat);
+    flushEnabled = false;
+    await writeJob({ status: 'error', error: err.message });
     return NextResponse.json({ error: err.message, steps }, { status: 500 });
   }
 }
