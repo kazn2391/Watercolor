@@ -15,26 +15,65 @@ interface CreateInput {
   shopSectionId?: number;
 }
 
-export async function findClipArtTaxonomyId(): Promise<number> {
+// Taxonomy agacini bir kez cekip bellekte tut (her cagride tekrar cekmesin)
+let taxonomyCache: any[] | null = null;
+
+async function getTaxonomyTree(): Promise<any[]> {
+  if (taxonomyCache) return taxonomyCache;
   const res = await fetch(ETSY_API + '/seller-taxonomy/nodes', {
     headers: { 'x-api-key': getEtsyApiKeyHeader() },
   });
   const data = await res.json();
   if (!res.ok) throw new Error('Taxonomy alinamadi: ' + JSON.stringify(data).slice(0, 200));
+  taxonomyCache = data.results || [];
+  return taxonomyCache!;
+}
 
-  function search(nodes: any[]): number | null {
+/**
+ * Taxonomy agacinda isimle arama yapar.
+ * needles: aranacak isim parcalari (kucuk harf). Sirayla denenir.
+ */
+async function findTaxonomyIdByName(needles: string[]): Promise<number | null> {
+  const tree = await getTaxonomyTree();
+
+  function search(nodes: any[], needle: string): number | null {
     for (const n of nodes || []) {
-      if (n.name && n.name.toLowerCase().indexOf('clip art') !== -1) return n.id;
+      if (n.name && n.name.toLowerCase().indexOf(needle) !== -1) return n.id;
       if (n.children) {
-        const r = search(n.children);
+        const r = search(n.children, needle);
         if (r) return r;
       }
     }
     return null;
   }
-  const id = search(data.results);
+
+  for (const needle of needles) {
+    const id = search(tree, needle);
+    if (id) return id;
+  }
+  return null;
+}
+
+export async function findClipArtTaxonomyId(): Promise<number> {
+  const id = await findTaxonomyIdByName(['clip art']);
   if (!id) throw new Error('Clip Art taxonomy bulunamadi');
   return id;
+}
+
+export async function findDigitalPrintsTaxonomyId(): Promise<number> {
+  const id = await findTaxonomyIdByName(['digital prints', 'digital print']);
+  if (!id) throw new Error('Digital Prints taxonomy bulunamadi');
+  return id;
+}
+
+/**
+ * categoryMode: 'clipart' (varsayilan) veya 'digital_prints'
+ */
+export async function findTaxonomyIdForMode(categoryMode: string): Promise<number> {
+  if (categoryMode === 'digital_prints') {
+    return findDigitalPrintsTaxonomyId();
+  }
+  return findClipArtTaxonomyId();
 }
 
 export async function createDraftListing(input: CreateInput, shopKey: string = 'shop1'): Promise<number> {
